@@ -13,6 +13,186 @@ const EM = (() => {
     ? MOCK_BASE + "/search"
     : "https://searchapi.eastmoney.com/api/suggest/get";
   const SEARCH_TOKEN = "D43BF722C8E33BDC906FB84D85E326E8";
+  /* 盈利预测/估值接口（datacenter-web） */
+  const DCW = MOCK
+    ? MOCK_BASE + "/dcw"
+    : "https://datacenter-web.eastmoney.com/api/data/v1/get";
+
+  /* datacenter-web 通用查询 */
+  async function dcwJson(reportName, filter, page = 1, pageSize = 10, sortColumn = null, sortType = -1) {
+    let url = DCW + `?reportName=${reportName}&columns=ALL&pageNumber=${page}&pageSize=${pageSize}`;
+    if (filter) url += `&filter=${encodeURIComponent(filter)}`;
+    if (sortColumn) url += `&sortTypes=${sortType}&sortColumns=${sortColumn}`;
+    const j = await getJson(url);
+    return j.result || {};
+  }
+
+  /* ============ 盈利预测（分析师一致预期）============ */
+  /* 返回：未来3年预测EPS、机构评级、目标价区间、行业 */
+  async function getProfitForecast(code) {
+    const r = await dcwJson("RPT_WEB_RESPREDICT", `(SECURITY_CODE="${code}")`, 1, 10);
+    const rows = r.data || [];
+    if (!rows.length) return null;
+    const d = rows[0];
+    return {
+      code: str(d.SECURITY_CODE),
+      name: str(d.SECURITY_NAME_ABBR),
+      industry: str(d.INDUSTRY_BOARD),
+      orgNum: num(d.RATING_ORG_NUM),
+      buyNum: num(d.RATING_BUY_NUM),
+      addNum: num(d.RATING_ADD_NUM),
+      neutralNum: num(d.RATING_NEUTRAL_NUM),
+      reduceNum: num(d.RATING_REDUCE_NUM),
+      saleNum: num(d.RATING_SALE_NUM),
+      epsActual: num(d.EPS1),          // 已实现 EPS
+      yearActual: num(d.YEAR1),
+      epsNext: num(d.EPS2),            // 明年预测
+      yearNext: num(d.YEAR2),
+      epsNext2: num(d.EPS3),           // 后年预测
+      yearNext2: num(d.YEAR3),
+      epsNext3: num(d.EPS4),           // 大后年预测
+      yearNext3: num(d.YEAR4),
+      aimPriceMax: num(d.DEC_AIMPRICEMAX),
+      aimPriceMin: num(d.DEC_AIMPRICEMIN),
+      orgLongNum: num(d.RATING_LONG_NUM),
+    };
+  }
+
+  /* ============ 估值快照（PE/PB/总股本）============ */
+  async function getValuation(code, market) {
+    const su = secucode(code, market);
+    const r = await dcwJson("RPT_VALUEANALYSIS_DET", `(SECUCODE="${su}")`, 1, 5);
+    const rows = r.data || [];
+    if (!rows.length) return null;
+    const d = rows[0];
+    return {
+      code: str(d.SECURITY_CODE),
+      name: str(d.SECURITY_NAME_ABBR),
+      price: num(d.CLOSE_PRICE),
+      peTtm: num(d.PE_TTM),
+      peLar: num(d.PE_LAR),
+      pbMrq: num(d.PB_MRQ),
+      psTtm: num(d.PS_TTM),
+      pegCar: num(d.PEG_CAR),
+      totalShares: num(d.TOTAL_SHARES),
+      mktCap: num(d.TOTAL_MARKET_CAP),
+      changeRate: num(d.CHANGE_RATE),
+      tradeDate: str(d.TRADE_DATE).slice(0, 10),
+    };
+  }
+
+  /* ============ 全市场盈利预测列表（首页行业分类用）============ */
+  async function getAllForecast() {
+    const pageSize = 500;
+    const first = await dcwJson("RPT_WEB_RESPREDICT", null, 1, pageSize, "RATING_ORG_NUM");
+    const pages = Math.max(1, first.pages || 1);
+    const all = (first.data || []).slice();
+    for (let p = 2; p <= Math.min(pages, 8); p++) {
+      try {
+        const r = await dcwJson("RPT_WEB_RESPREDICT", null, p, pageSize, "RATING_ORG_NUM");
+        all.push(...((r.data || [])));
+      } catch (e) { /* 部分页失败不阻断 */ }
+    }
+    return all.map((d) => ({
+      code: str(d.SECURITY_CODE),
+      name: str(d.SECURITY_NAME_ABBR),
+      industry: str(d.INDUSTRY_BOARD),
+      orgNum: num(d.RATING_ORG_NUM),
+      buyNum: num(d.RATING_BUY_NUM),
+      addNum: num(d.RATING_ADD_NUM),
+      epsActual: num(d.EPS1),
+      epsNext: num(d.EPS2),
+      epsNext2: num(d.EPS3),
+      epsNext3: num(d.EPS4),
+      aimPriceMax: num(d.DEC_AIMPRICEMAX),
+      aimPriceMin: num(d.DEC_AIMPRICEMIN),
+    }));
+  }
+
+  /* ============ 估值打分模型（100分，越高越高估）============ */
+  /*
+   * 维度1 PEG（40分）：PE_TTM ÷ 预测复合增速
+   * 维度2 PE 绝对水平（30分）
+   * 维度3 目标价空间（30分）：(目标价均值-现价)/现价
+   */
+  function calcValuationScore(valuation, forecast) {
+    if (!valuation) return null;
+    let total = 0;
+    const parts = [];
+
+    /* 维度1 PEG 40分 */
+    let pegScore = null;
+    let peg = null;
+    const pe = valuation.peTtm;
+    const growth = forecast ? forecastGrowth(forecast) : null;
+    if (pe && growth && growth > 0) {
+      peg = pe / growth;
+      if (peg <= 0.5) pegScore = 8;
+      else if (peg <= 1) pegScore = 16;
+      else if (peg <= 2) pegScore = 24;
+      else if (peg <= 3) pegScore = 32;
+      else pegScore = 40;
+      total += pegScore;
+    }
+    parts.push({ name: "PEG（估值/增速匹配）", score: pegScore, weight: 40, note: peg !== null ? `PE ${pe.toFixed(1)} ÷ 预测增速 ${growth.toFixed(1)}% = ${peg.toFixed(2)}` : "无增速数据" });
+
+    /* 维度2 PE 绝对水平 30分 */
+    let peScore = null;
+    if (pe) {
+      if (pe < 15) peScore = 6;
+      else if (pe < 25) peScore = 12;
+      else if (pe < 40) peScore = 18;
+      else if (pe < 60) peScore = 24;
+      else peScore = 30;
+      total += peScore;
+    }
+    parts.push({ name: "PE 绝对水平", score: peScore, weight: 30, note: pe ? `PE(TTM) ${pe.toFixed(1)}` : "无PE数据" });
+
+    /* 维度3 目标价空间 30分 */
+    let aimScore = null;
+    let aimGap = null;
+    if (forecast && forecast.aimPriceMax && forecast.aimPriceMin && valuation.price) {
+      const aim = (forecast.aimPriceMax + forecast.aimPriceMin) / 2;
+      aimGap = (aim - valuation.price) / valuation.price * 100;
+      if (aimGap > 30) aimScore = 4;
+      else if (aimGap > 10) aimScore = 10;
+      else if (aimGap > -10) aimScore = 20;
+      else aimScore = 30;
+      total += aimScore;
+    }
+    parts.push({ name: "目标价空间", score: aimScore, weight: 30, note: aimGap !== null ? `目标价均值 vs 现价 ${aimGap >= 0 ? "+" : ""}${aimGap.toFixed(1)}%` : "无目标价数据" });
+
+    /* 标签 */
+    let label, cls;
+    if (total >= 75) { label = "高估"; cls = "danger"; }
+    else if (total >= 60) { label = "偏高"; cls = "warn"; }
+    else if (total >= 50) { label = "合理"; cls = "mid"; }
+    else if (total >= 30) { label = "偏低"; cls = "ok"; }
+    else { label = "低估"; cls = "good"; }
+
+    return { total: Math.round(total), label, cls, parts, peg, growth };
+  }
+
+  function forecastGrowth(f) {
+    /* 用未来两年预测 EPS 的复合增速 */
+    if (f && f.epsNext && f.epsNext2 && f.epsNext > 0) {
+      return (f.epsNext2 / f.epsNext - 1) * 100;
+    }
+    if (f && f.epsActual && f.epsNext && f.epsActual > 0) {
+      return (f.epsNext / f.epsActual - 1) * 100;
+    }
+    return null;
+  }
+
+  /* 预测净利润（EPS × 总股本） */
+  function forecastProfit(f, totalShares) {
+    if (!f || !totalShares) return null;
+    return {
+      next: f.epsNext ? f.epsNext * totalShares : null,
+      next2: f.epsNext2 ? f.epsNext2 * totalShares : null,
+      next3: f.epsNext3 ? f.epsNext3 * totalShares : null,
+    };
+  }
 
   /* 通用 fetch：超时 + JSON 解析 */
   async function getJson(url, timeout = 15000) {
@@ -239,9 +419,7 @@ const EM = (() => {
   async function searchStock(keyword) {
     if (!keyword) return [];
     return searchJsonp(keyword);
-  }
-
-  function searchJsonp(keyword) {
+  }  function searchJsonp(keyword) {
     return new Promise((resolve, reject) => {
       const cb = "em_s_" + Date.now() + "_" + Math.floor(Math.random() * 1e6);
       const script = document.createElement("script");
@@ -379,6 +557,15 @@ const EM = (() => {
     mainopRatio: "该项目收入占公司营业总收入的比例",
     mainopCost: "该项目对应的营业成本",
     mainopMargin: "该项目毛利率 = (收入 - 成本) ÷ 收入，反映单一业务的盈利空间",
+    rating: "券商机构评级：买入/增持/中性/减持/卖出，数字为给出该评级的机构家数",
+    epsNext: "券商一致预期：机构预测的公司下一年度每股收益（EPS）",
+    epsNext2: "券商一致预期：机构预测的公司后一年度每股收益（EPS）",
+    forecastGrowth: "券商一致预期的未来盈利增速（基于预测 EPS 推算的复合增长率）",
+    aimPrice: "券商机构给出的目标价区间：若现价远低于区间下沿，机构认为存在上涨空间；反之亦然",
+    scoreExplain: "估值打分（0-100分）：综合 PEG（40分）、PE 绝对水平（30分）、目标价空间（30分）三个维度，分数越高代表估值越贵（高估），越低代表越便宜（低估）",
+    scorePeg: "PEG = PE(TTM) ÷ 预测盈利增速，衡量估值与成长性的匹配度：PEG≤1 通常视为合理，越低越便宜",
+    scorePe: "PE(TTM) = 股价 ÷ 近12个月每股收益，绝对水平越高代表估值越贵",
+    scoreAim: "目标价空间 = (机构目标价均值 - 现价) ÷ 现价，空间越大代表机构认为越被低估",
   };
 
   return {
@@ -389,6 +576,12 @@ const EM = (() => {
     getBalanceSheet,
     getIncomeStatement,
     getCashflow,
+    getProfitForecast,
+    getValuation,
+    getAllForecast,
+    calcValuationScore,
+    forecastGrowth,
+    forecastProfit,
     searchStock,
     fmtNum,
     fmtBig,
