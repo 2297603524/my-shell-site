@@ -120,6 +120,44 @@ def mock_search():
     ], "Status": 0, "Message": "成功", "TotalCount": 3}}
 
 
+def mock_forecast():
+    return {"result": {"data": [{
+        "SECURITY_CODE": "600519", "SECURITY_NAME_ABBR": "贵州茅台",
+        "RATING_ORG_NUM": 44, "RATING_BUY_NUM": 37, "RATING_ADD_NUM": 7,
+        "RATING_NEUTRAL_NUM": None, "RATING_REDUCE_NUM": None, "RATING_SALE_NUM": None,
+        "YEAR1": 2025, "EPS1": 65.85, "YEAR2": 2026, "EPS2": 68.73,
+        "YEAR3": 2027, "EPS3": 72.48, "YEAR4": 2028, "EPS4": 76.04,
+        "INDUSTRY_BOARD": "白酒Ⅱ", "DEC_AIMPRICEMAX": 2030, "DEC_AIMPRICEMIN": 1430,
+        "RATING_LONG_NUM": 44,
+    }]}}
+
+
+def mock_valuation():
+    return {"result": {"data": [{
+        "SECURITY_CODE": "600519", "SECURITY_NAME_ABBR": "贵州茅台",
+        "CLOSE_PRICE": 1341.99, "PE_TTM": 20.28, "PE_LAR": 20.38, "PB_MRQ": 6.19,
+        "PS_TTM": 9.57, "PEG_CAR": -4.89, "TOTAL_SHARES": 1250081601,
+        "TOTAL_MARKET_CAP": 1677597007725.99, "CHANGE_RATE": -0.98,
+        "TRADE_DATE": "2026-08-14 00:00:00",
+    }]}}
+
+
+def mock_all_forecast():
+    rows = []
+    names = [("600519", "贵州茅台", "白酒Ⅱ"), ("000858", "五粮液", "白酒Ⅱ"),
+             ("000568", "泸州老窖", "白酒Ⅱ"), ("601398", "工商银行", "银行Ⅱ"),
+             ("601939", "建设银行", "银行Ⅱ"), ("600941", "中国移动", "通信服务"),
+             ("300750", "宁德时代", "电池"), ("002594", "比亚迪", "汽车整车")]
+    for i, (code, name, ind) in enumerate(names):
+        rows.append({
+            "SECURITY_CODE": code, "SECURITY_NAME_ABBR": name, "INDUSTRY_BOARD": ind,
+            "RATING_ORG_NUM": 40 - i * 3, "RATING_BUY_NUM": 30 - i * 2, "RATING_ADD_NUM": 8,
+            "EPS1": 65 - i, "EPS2": 68 - i, "EPS3": 72 - i, "EPS4": 76 - i,
+            "DEC_AIMPRICEMAX": 2000 - i * 100, "DEC_AIMPRICEMIN": 1400 - i * 50,
+        })
+    return {"result": {"count": 2818, "pages": 1, "data": rows}}
+
+
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -137,6 +175,18 @@ class Handler(BaseHTTPRequestHandler):
                 "RPT_DMSK_FN_INCOME": mock_income,
                 "RPT_DMSK_FN_CASHFLOW": mock_cashflow,
             }.get(report, lambda: {"result": {"data": []}})()
+        elif path.endswith("/dcw"):
+            report = qs.get("reportName", [""])[0]
+            if report == "RPT_WEB_RESPREDICT":
+                sec = qs.get("filter", [""])[0]
+                if "SECURITY_CODE" in sec:
+                    body = mock_forecast()
+                else:
+                    body = mock_all_forecast()
+            elif report == "RPT_VALUEANALYSIS_DET":
+                body = mock_valuation()
+            else:
+                body = {"result": {"data": []}}
         elif path.endswith("/search"):
             body = mock_search()
         if body is None:
