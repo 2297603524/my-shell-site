@@ -57,7 +57,11 @@ const EM = (() => {
   /* ============ 公司概况 ============ */
   async function getCompanyProfile(code, market) {
     const su = secucode(code, market);
-    const url = dcUrl("RPT_F10_BASIC_ORGINFO", `(SECUCODE="${su}")`, 1, 1);
+    // 注意：该报表无 REPORT_DATE 排序列，不能带排序参数
+    const f = encodeURIComponent(`(SECUCODE="${su}")`);
+    const url = DC +
+      `?reportName=RPT_F10_BASIC_ORGINFO&columns=ALL&filter=${f}` +
+      "&pageNumber=1&pageSize=1&source=HSF10&client=PC";
     const j = await getJson(url);
     const rows = (j.result && j.result.data) || [];
     if (!rows.length) throw new Error("未找到公司概况");
