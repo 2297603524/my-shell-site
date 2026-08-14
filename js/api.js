@@ -235,21 +235,48 @@ const EM = (() => {
   }
 
   /* ============ 股票搜索（代码/名称/拼音）============ */
+  /* 注意：searchapi 接口无 CORS 头，浏览器 fetch 会被拦截，必须用 JSONP（cb= 参数） */
   async function searchStock(keyword) {
     if (!keyword) return [];
-    const url = SEARCH + `?input=${encodeURIComponent(keyword)}&type=14&token=${SEARCH_TOKEN}&count=10`;
-    const j = await getJson(url, 10000);
-    const table = j && j.QuotationCodeTable;
-    const data = (table && table.Data) || [];
-    return data
-      .filter((d) => d.Classify === "AStock" || d.Classify === "HKStock" || d.Classify === "USStock")
-      .map((d) => ({
-        code: str(d.Code),
-        name: str(d.Name),
-        pinyin: str(d.PinYin),
-        secid: str(d.QuoteID),
-        type: str(d.SecurityTypeName) || str(d.Classify),
-      }));
+    return searchJsonp(keyword);
+  }
+
+  function searchJsonp(keyword) {
+    return new Promise((resolve, reject) => {
+      const cb = "em_s_" + Date.now() + "_" + Math.floor(Math.random() * 1e6);
+      const script = document.createElement("script");
+      const timer = setTimeout(() => { cleanup(); reject(new Error("搜索超时")); }, 8000);
+      function cleanup() {
+        clearTimeout(timer);
+        delete window[cb];
+        if (script.parentNode) script.parentNode.removeChild(script);
+      }
+      window[cb] = (data) => {
+        cleanup();
+        try {
+          const table = data && data.QuotationCodeTable;
+          const list = (table && table.Data) || [];
+          resolve(
+            list
+              .filter((d) => d.Classify === "AStock" || d.Classify === "HKStock" || d.Classify === "USStock")
+              .map((d) => ({
+                code: str(d.Code),
+                name: str(d.Name),
+                pinyin: str(d.PinYin),
+                secid: str(d.QuoteID),
+                type: str(d.SecurityTypeName) || str(d.Classify),
+              }))
+          );
+        } catch (e) {
+          reject(new Error("搜索解析失败"));
+        }
+      };
+      script.onerror = () => { cleanup(); reject(new Error("搜索网络错误")); };
+      script.src =
+        SEARCH +
+        `?input=${encodeURIComponent(keyword)}&type=14&token=${SEARCH_TOKEN}&count=10&cb=${cb}`;
+      document.head.appendChild(script);
+    });
   }
 
   /* ============ 工具函数 ============ */
