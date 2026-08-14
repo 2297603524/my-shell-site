@@ -13,6 +13,92 @@ const EM = (() => {
   const UT = "fa5fd1943c7b386f172d6893dbfba10b";
   const SEARCH_TOKEN = "D43BF722C8E33BDC906FB84D85E326E8";
 
+  /* ===== 腾讯数据源（备选，东财不可用时兜底）===== */
+  const TX_QT = "https://qt.gtimg.cn/q=";                    // 快照(GBK文本)
+  const TX_KLINE = "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=";
+  const TX_MINUTE = "https://web.ifzq.gtimg.cn/appstock/app/minute/query?code=";
+
+  /* secid -> 腾讯代码，如 1.600519 -> sh600519, 0.000001 -> sz000001, 116.00700 -> hk00700, 105.AAPL -> usAAPL */
+  function txCode(secid) {
+    const m = secid.split(".")[0];
+    const c = secid.split(".")[1] || "";
+    if (m === "1") return "sh" + c;
+    if (m === "0") return "sz" + c;
+    if (m === "116") return "hk" + c;
+    return "us" + c;
+  }
+
+  /* 腾讯快照文本（GBK）解析 */
+  async function txQuote(secid) {
+    const res = await fetch(TX_QT + txCode(secid), { headers: { Accept: "*/*" } });
+    if (!res.ok) throw new Error("TX HTTP " + res.status);
+    const buf = await res.arrayBuffer();
+    const text = new TextDecoder("gbk").decode(buf);
+    const m = text.match(/"([^"]+)"/);
+    if (!m) throw new Error("TX parse error");
+    const p = m[1].split("~");
+    return {
+      code: p[2] || "",
+      name: p[1] || "",
+      price: num(p[3]),
+      preClose: num(p[4]),
+      open: num(p[5]),
+      volume: num(p[6]),
+      high: num(p[33]),
+      low: num(p[34]),
+      change: num(p[31]),
+      pct: num(p[32]),
+      amount: num(p[37]) ? num(p[37]) * 10000 : null,   // 万元 -> 元
+      turnover: num(p[38]),
+      pe: num(p[39]),
+      pb: num(p[46]),
+      floatCap: num(p[44]) ? num(p[44]) * 1e8 : null,   // 亿 -> 元
+      mktCap: num(p[45]) ? num(p[45]) * 1e8 : null,     // 亿 -> 元
+    };
+  }
+
+  /* 腾讯K线解析 */
+  async function txKline(secid, klt, fqt, count) {
+    const period = klt === 102 ? "week" : klt === 103 ? "month" : "day";
+    const adjust = fqt === 2 ? "hfq" : fqt === 0 ? "" : "qfq";
+    const res = await fetch(TX_KLINE + `${txCode(secid)},${period},,,${count},${adjust}`);
+    if (!res.ok) throw new Error("TX HTTP " + res.status);
+    const j = await res.json();
+    const d = j.data && j.data[txCode(secid)];
+    const key = adjust + period;
+    const list = (d && d[key]) || (d && d["qfq" + period]) || (d && d["hfq" + period]) || (d && d["day"]) || [];
+    if (!list.length) throw new Error("TX kline empty");
+    return {
+      code: secid.split(".")[1],
+      name: (d && d.qt && d.qt[txCode(secid)] && d.qt[txCode(secid)][1]) || "",
+      klines: list.map((r) => ({
+        date: r[0], open: Number(r[1]), close: Number(r[2]), high: Number(r[3]), low: Number(r[4]), volume: Number(r[5]),
+      })),
+    };
+  }
+
+  /* 腾讯分时解析 */
+  async function txTrend(secid) {
+    const res = await fetch(TX_MINUTE + txCode(secid));
+    if (!res.ok) throw new Error("TX HTTP " + res.status);
+    const j = await res.json();
+    const d = j.data && j.data[txCode(secid)];
+    const lines = d && d.data && d.data.data;
+    if (!lines || !lines.length) throw new Error("TX trend empty");
+    const preClose = num(d.qt && d.qt[txCode(secid)] && d.qt[txCode(secid)][4]);
+    const trends = lines.map((ln) => {
+      const p = String(ln).split(" ");
+      return {
+        time: p[0].slice(0, 2) + ":" + p[0].slice(2),
+        price: num(p[1]),
+        volume: num(p[2]),
+        amount: num(p[3]),
+        avg: null,
+      };
+    });
+    return { name: "", preClose, trends };
+  }
+
   /* 通用 fetch：超时 + JSON 解析，支持多域名轮换（防限流/单点故障） */
   async function getJson(url, timeout = 12000, hosts = null, useJsonp = true) {
     const tryList = hosts ? hosts.map((h) => url.replace(/^https:\/\/[^/]+/, "https://" + h)) : [url];
@@ -183,6 +269,19 @@ const EM = (() => {
     };
   }
 
+  /* 个股快照（东财优先，失败切腾讯） */
+  async function getStockQuoteSafe(secid) {
+    try {
+      return await getStockQuote(secid);
+    } catch (e) {
+      const q = await txQuote(secid);
+      q.pctYtd = null;
+      q.high52w = null;
+      q.low52w = null;
+      return q;
+    }
+  }
+
   /* ============ K线 ============ */
   /* klt: 101日 102周 103月 60分时5分钟? 1=1分钟 5=5分钟 15 30 60 */
   /* fqt: 1前复权 2后复权 0不复权 */
@@ -208,7 +307,17 @@ const EM = (() => {
         pct: Number(p[8]),
       };
     });
+    if (!klines.length) throw new Error("东财K线为空");
     return { code: d.code, name: d.name, preClose: num(d.preKPrice), klines };
+  }
+
+  /* K线（东财优先，失败切腾讯） */
+  async function getKlineSafe(secid, klt, fqt, count) {
+    try {
+      return await getKline(secid, klt, fqt, count);
+    } catch (e) {
+      return await txKline(secid, klt, fqt, count);
+    }
   }
 
   /* ============ 分时 ============ */
@@ -216,7 +325,7 @@ const EM = (() => {
     const url =
       BASE +
       "stock/trends2/get?" +
-      `secid=${secid}&ndays=1&iscr=0&fields1=f1,f2,f3,f4,f5,f6,f7,f8&fields2=f51,f52,f53,f54,f55,f56,f57,f58`;
+      `      secid=${secid}&ndays=1&iscr=0&fields1=f1,f2,f3,f4,f5,f6,f7,f8&fields2=f51,f52,f53,f54,f55,f56,f57,f58`;
     const j = await getJson(url);
     const d = j.data || {};
     const trends = (d.trends || []).map((line) => {
@@ -229,7 +338,17 @@ const EM = (() => {
         amount: Number(p[7]),
       };
     });
+    if (!trends.length) throw new Error("东财分时为空");
     return { name: d.name, preClose: num(d.preClose), trends };
+  }
+
+  /* 分时（东财优先，失败切腾讯） */
+  async function getTrendSafe(secid) {
+    try {
+      return await getTrend(secid);
+    } catch (e) {
+      return await txTrend(secid);
+    }
   }
 
   /* ============ 资金流向（日级历史）============ */
@@ -366,9 +485,9 @@ const EM = (() => {
   return {
     getIndices,
     getStockList,
-    getStockQuote,
-    getKline,
-    getTrend,
+    getStockQuote: getStockQuoteSafe,
+    getKline: getKlineSafe,
+    getTrend: getTrendSafe,
     getFundFlow,
     getSectors,
     getFinance,
