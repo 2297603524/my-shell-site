@@ -20,6 +20,12 @@
   </header>
 
   <main class="container">
+    <!-- 自选股 -->
+    <div class="card watch-card" id="watch-card">
+      <div class="card-title">我的自选<span style="font-size:12px;color:var(--text-3);font-weight:400;">（在个股页点击 ☆ 加入自选）</span></div>
+      <div id="watch-list"><div class="state-box"><div class="spin"></div>加载自选中…</div></div>
+    </div>
+
     <!-- 排行说明 -->
     <div class="card">
       <div class="card-title">A股公司财务排行（基本面 · 最新报告期）</div>
@@ -38,15 +44,15 @@
           <thead>
             <tr>
               <th>名称 / 代码</th>
-              <th>报告期</th>
-              <th>营业总收入</th>
-              <th>营收同比</th>
-              <th>归母净利润</th>
-              <th>净利同比</th>
-              <th>ROE</th>
-              <th>毛利率</th>
-              <th>EPS</th>
-              <th>行业</th>
+              <th>报告期<i class="hint" data-key="reportDate">?</i></th>
+              <th>营业总收入<i class="hint" data-key="income">?</i></th>
+              <th>营收同比<i class="hint" data-key="incomeYoy">?</i></th>
+              <th>归母净利润<i class="hint" data-key="netProfit">?</i></th>
+              <th>净利同比<i class="hint" data-key="profitYoy">?</i></th>
+              <th>ROE<i class="hint" data-key="roe">?</i></th>
+              <th>毛利率<i class="hint" data-key="grossMargin">?</i></th>
+              <th>EPS<i class="hint" data-key="eps">?</i></th>
+              <th>行业<i class="hint" data-key="industry">?</i></th>
             </tr>
           </thead>
           <tbody id="fin-tbody">
