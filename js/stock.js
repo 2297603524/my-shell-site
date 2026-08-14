@@ -1,326 +1,176 @@
-/* ===== 个股详情页逻辑：行情 / 分时 / K线 / 资金流 / 财务 ===== */
+/* ===== 个股基本面逻辑：公司概况 / 财务指标 / 三大报表 / 主营构成 ===== */
 (function () {
   "use strict";
 
   const params = new URLSearchParams(location.search);
-  const SECID = params.get("secid") || "1.600519";
+  const CODE = params.get("code") || "600519";
   const NAME = params.get("name") || "";
+  const market = CODE.startsWith("6") || CODE.startsWith("9") ? "SH" : "SZ";
 
-  let chart = null;          // 主图（分时/K线）
-  let flowChart = null;      // 资金流柱状图
-  let curKind = "trend";     // trend | kline
-  let curKlt = 101;
-  let curFqt = 1;
-  let quote = null;
-
-  const UP = "#f04438";
-  const DOWN = "#12b76a";
-  const GRID_LINE = "rgba(45,54,72,0.35)";
-  const TEXT_2 = "#9aa7b8";
-
-  /* ============ 头部信息 ============ */
-  async function loadQuote() {
-    const head = document.getElementById("stock-head");
-    const grid = document.getElementById("quote-grid");
+  /* ============ 公司概况 ============ */
+  async function loadProfile() {
+    const box = document.getElementById("profile-card");
     try {
-      quote = await EM.getStockQuote(SECID);
-      document.title = `${quote.name || NAME} ${quote.code} · 股析`;
-      const c = EM.clsOf(quote.pct);
-      head.innerHTML = `<div class="stock-name-block">
-          <h1>${quote.name || NAME}<span class="code-line">${quote.code} · 实时</span></h1>
-        </div>
-        <div class="price-block">
-          <div class="price ${c}">${EM.fmtNum(quote.price)}</div>
-          <div class="change-line ${c}">${EM.fmtPct(quote.pct)}  ${quote.change >= 0 ? "+" : ""}${EM.fmtNum(quote.change)}</div>
+      const p = await EM.getCompanyProfile(CODE, market);
+      document.title = `${p.name} ${p.code} · 股析`;
+      box.innerHTML = `<div class="card-title">公司概况</div>
+        <div class="profile-grid">
+          <div class="profile-item"><div class="p-label">公司全称</div><div class="p-value">${p.fullName || "--"}</div></div>
+          <div class="profile-item"><div class="p-label">英文名称</div><div class="p-value">${p.enName || "--"}</div></div>
+          <div class="profile-item"><div class="p-label">曾用名</div><div class="p-value">${p.formerName || "--"}</div></div>
+          <div class="profile-item"><div class="p-label">证券类型</div><div class="p-value">${p.securityType || "--"}</div></div>
+          <div class="profile-item"><div class="p-label">上市交易所</div><div class="p-value">${p.tradeMarket || "--"}</div></div>
+          <div class="profile-item"><div class="p-label">行业（申万）</div><div class="p-value">${p.industryEM || "--"}</div></div>
+          <div class="profile-item"><div class="p-label">证监会行业</div><div class="p-value">${p.industryCSRC || "--"}</div></div>
+          <div class="profile-item"><div class="p-label">董事长</div><div class="p-value">${p.chairman || "--"}</div></div>
+          <div class="profile-item"><div class="p-label">总经理</div><div class="p-value">${p.president || "--"}</div></div>
+          <div class="profile-item"><div class="p-label">董秘</div><div class="p-value">${p.secretary || "--"}</div></div>
+          <div class="profile-item"><div class="p-label">法定代表人</div><div class="p-value">${p.legalPerson || "--"}</div></div>
+          <div class="profile-item"><div class="p-label">独立董事</div><div class="p-value">${p.independentDirectors || "--"}</div></div>
+          <div class="profile-item"><div class="p-label">电话</div><div class="p-value">${p.tel || "--"}</div></div>
+          <div class="profile-item"><div class="p-label">邮箱</div><div class="p-value">${p.email || "--"}</div></div>
+          <div class="profile-item"><div class="p-label">网站</div><div class="p-value">${p.website ? `<a href="${p.website}" target="_blank" rel="noopener">${p.website}</a>` : "--"}</div></div>
+          <div class="profile-item"><div class="p-label">注册地址</div><div class="p-value">${p.regAddress || "--"}</div></div>
+          <div class="profile-item"><div class="p-label">办公地址</div><div class="p-value">${p.address || "--"}</div></div>
+          <div class="profile-item"><div class="p-label">注册资本</div><div class="p-value">${p.regCapital || "--"}</div></div>
+          <div class="profile-item"><div class="p-label">上市日期</div><div class="p-value">${p.listDate || "--"}</div></div>
         </div>`;
-
-      const items = [
-        ["今开", EM.fmtNum(quote.open)],
-        ["昨收", EM.fmtNum(quote.preClose)],
-        ["最高", EM.fmtNum(quote.high)],
-        ["最低", EM.fmtNum(quote.low)],
-        ["成交量", EM.fmtBig(quote.volume)],
-        ["成交额", EM.fmtBig(quote.amount)],
-        ["换手率", EM.fmtNum(quote.turnover) + "%"],
-        ["市盈率(TTM)", EM.fmtNum(quote.pe)],
-        ["市净率", EM.fmtNum(quote.pb)],
-        ["总市值", EM.fmtBig(quote.mktCap)],
-        ["流通市值", EM.fmtBig(quote.floatCap)],
-        ["年初至今", EM.fmtPct(quote.pctYtd)],
-      ];
-      grid.innerHTML = items
-        .map(([k, v]) => `<div class="quote-item"><div class="q-label">${k}</div><div class="q-value">${v}</div></div>`)
-        .join("");
     } catch (e) {
-      head.innerHTML = `<div class="state-box">个股数据加载失败：${e.message}</div>`;
+      box.innerHTML = `<div class="card-title">公司概况</div><div class="state-box">公司概况加载失败：${e.message}</div>`;
     }
   }
 
-  /* ============ ECharts 初始化 ============ */
-  function initCharts() {
-    if (!window.echarts) {
-      document.getElementById("main-chart").innerHTML =
-        `<div class="state-box">图表库加载失败，请检查网络</div>`;
-      return;
-    }
-    chart = echarts.init(document.getElementById("main-chart"));
-    flowChart = echarts.init(document.getElementById("flow-chart"));
-    window.addEventListener("resize", () => {
-      chart && chart.resize();
-      flowChart && flowChart.resize();
-    });
-  }
-
-  /* ============ 分时图 ============ */
-  async function drawTrend() {
-    chart.showLoading({ text: "加载分时数据…", textColor: TEXT_2, maskColor: "rgba(13,17,23,0.6)" });
+  /* ============ 财务主要指标 ============ */
+  async function loadIndicators() {
+    const tbody = document.getElementById("ind-tbody");
     try {
-      const { preClose, trends } = await EM.getTrend(SECID);
-      const times = trends.map((t) => t.time.slice(11));
-      const prices = trends.map((t) => t.price);
-      const avgs = trends.map((t) => t.avg);
-      const vols = trends.map((t) => t.volume);
-
-      const base = preClose || quote?.preClose || prices[0];
-      const min = Math.min(...prices, base) * 0.997;
-      const max = Math.max(...prices, base) * 1.003;
-
-      const option = {
-        backgroundColor: "transparent",
-        animation: false,
-        tooltip: {
-          trigger: "axis",
-          backgroundColor: "#1c2333",
-          borderColor: "#2d3648",
-          textStyle: { color: "#e6edf3" },
-          axisPointer: { lineStyle: { color: "#6e7d92" } },
-        },
-        axisPointer: { link: [{ xAxisIndex: "all" }] },
-        grid: [
-          { left: 55, right: 20, top: 15, height: "62%" },
-          { left: 55, right: 20, top: "78%", height: "14%" },
-        ],
-        xAxis: [
-          { type: "category", data: times, boundaryGap: false, axisLine: { lineStyle: { color: GRID_LINE } }, axisLabel: { color: TEXT_2, fontSize: 11 } },
-          { type: "category", gridIndex: 1, data: times, boundaryGap: false, axisLine: { lineStyle: { color: GRID_LINE } }, axisLabel: { show: false }, splitLine: { show: false } },
-        ],
-        yAxis: [
-          {
-            type: "value", min: min, max: max, scale: true, splitNumber: 4,
-            axisLabel: { color: TEXT_2, fontSize: 11, formatter: (v) => v.toFixed(2) },
-            splitLine: { lineStyle: { color: GRID_LINE } },
-          },
-          {
-            type: "value", gridIndex: 1, splitNumber: 2,
-            axisLabel: { color: TEXT_2, fontSize: 11, formatter: (v) => (v >= 10000 ? (v / 10000).toFixed(0) + "万" : v) },
-            splitLine: { show: false },
-          },
-        ],
-        dataZoom: [{ type: "inside", xAxisIndex: [0, 1], start: 0, end: 100 }],
-        series: [
-          {
-            name: "价格", type: "line", data: prices, showSymbol: false, lineStyle: { width: 1.4 },
-            markLine: {
-              silent: true, symbol: "none",
-              lineStyle: { color: "#6e7d92", type: "dashed", width: 0.8 },
-              label: { color: TEXT_2, fontSize: 11, formatter: "昨收 " + base.toFixed(2) },
-              data: [{ yAxis: base }],
-            },
-            areaStyle: { color: "rgba(59,130,246,0.08)" },
-          },
-          { name: "均价", type: "line", data: avgs, showSymbol: false, lineStyle: { width: 1, color: "#eab308", type: "dashed" } },
-          {
-            name: "成交量", type: "bar", xAxisIndex: 1, yAxisIndex: 1, data: vols,
-            itemStyle: { color: (p) => (prices[p.dataIndex] >= base ? UP : DOWN) },
-          },
-        ],
-      };
-      chart.hideLoading();
-      chart.setOption(option, true);
-    } catch (e) {
-      chart.hideLoading();
-      chart.clear();
-      document.getElementById("main-chart").innerHTML = `<div class="state-box">分时数据加载失败：${e.message}</div>`;
-    }
-  }
-
-  /* ============ K线图 ============ */
-  async function drawKline() {
-    chart.showLoading({ text: "加载K线数据…", textColor: TEXT_2, maskColor: "rgba(13,17,23,0.6)" });
-    try {
-      const { klines } = await EM.getKline(SECID, curKlt, curFqt, 320);
-      if (!klines.length) throw new Error("无K线数据");
-      const dates = klines.map((k) => k.date);
-      const ohlc = klines.map((k) => [k.open, k.close, k.low, k.high]);
-      const vols = klines.map((k) => k.volume);
-      const ma5 = calcMA(klines, 5);
-      const ma10 = calcMA(klines, 10);
-      const ma20 = calcMA(klines, 20);
-      const ma60 = calcMA(klines, 60);
-
-      const option = {
-        backgroundColor: "transparent",
-        animation: false,
-        tooltip: {
-          trigger: "axis",
-          backgroundColor: "#1c2333",
-          borderColor: "#2d3648",
-          textStyle: { color: "#e6edf3" },
-          axisPointer: { type: "cross", lineStyle: { color: "#6e7d92" }, crossStyle: { color: "#6e7d92" } },
-        },
-        axisPointer: { link: [{ xAxisIndex: "all" }] },
-        grid: [
-          { left: 55, right: 20, top: 15, height: "58%" },
-          { left: 55, right: 20, top: "79%", height: "14%" },
-        ],
-        xAxis: [
-          { type: "category", data: dates, boundaryGap: true, axisLine: { lineStyle: { color: GRID_LINE } }, axisLabel: { color: TEXT_2, fontSize: 11 } },
-          { type: "category", gridIndex: 1, data: dates, boundaryGap: true, axisLine: { lineStyle: { color: GRID_LINE } }, axisLabel: { show: false }, splitLine: { show: false } },
-        ],
-        yAxis: [
-          {
-            type: "value", scale: true, splitNumber: 4,
-            axisLabel: { color: TEXT_2, fontSize: 11, formatter: (v) => v.toFixed(2) },
-            splitLine: { lineStyle: { color: GRID_LINE } },
-          },
-          {
-            type: "value", gridIndex: 1, splitNumber: 2,
-            axisLabel: { color: TEXT_2, fontSize: 11, formatter: (v) => (v >= 10000 ? (v / 10000).toFixed(0) + "万" : v) },
-            splitLine: { show: false },
-          },
-        ],
-        dataZoom: [
-          { type: "inside", xAxisIndex: [0, 1], start: 55, end: 100 },
-          { type: "slider", xAxisIndex: [0, 1], start: 55, end: 100, height: 16, bottom: 4, borderColor: GRID_LINE, textStyle: { color: TEXT_2, fontSize: 10 }, backgroundColor: "rgba(13,17,23,0.4)" },
-        ],
-        series: [
-          {
-            name: "K线", type: "candlestick", data: ohlc,
-            itemStyle: {
-              color: UP, color0: DOWN, borderColor: UP, borderColor0: DOWN,
-            },
-          },
-          { name: "MA5", type: "line", data: ma5, smooth: true, showSymbol: false, lineStyle: { width: 1, color: "#eab308" } },
-          { name: "MA10", type: "line", data: ma10, smooth: true, showSymbol: false, lineStyle: { width: 1, color: "#60a5fa" } },
-          { name: "MA20", type: "line", data: ma20, smooth: true, showSymbol: false, lineStyle: { width: 1, color: "#c084fc" } },
-          { name: "MA60", type: "line", data: ma60, smooth: true, showSymbol: false, lineStyle: { width: 1, color: "#f472b6" } },
-          {
-            name: "成交量", type: "bar", xAxisIndex: 1, yAxisIndex: 1, data: vols,
-            itemStyle: { color: (p) => (ohlc[p.dataIndex][1] >= ohlc[p.dataIndex][0] ? UP : DOWN) },
-          },
-        ],
-      };
-      chart.hideLoading();
-      chart.setOption(option, true);
-    } catch (e) {
-      chart.hideLoading();
-      chart.clear();
-      document.getElementById("main-chart").innerHTML = `<div class="state-box">K线数据加载失败：${e.message}</div>`;
-    }
-  }
-
-  function calcMA(klines, n) {
-    const out = [];
-    let sum = 0;
-    for (let i = 0; i < klines.length; i++) {
-      sum += klines[i].close;
-      if (i >= n) sum -= klines[i - n].close;
-      out.push(i >= n - 1 ? +(sum / n).toFixed(2) : null);
-    }
-    return out;
-  }
-
-  /* ============ 资金流向 ============ */
-  async function drawFlow() {
-    const metrics = document.getElementById("flow-metrics");
-    try {
-      const { klines } = await EM.getFundFlow(SECID, 60);
-      if (!klines.length) throw new Error("无资金流数据");
-      const last = klines[klines.length - 1];
-      const items = [
-        ["今日主力净流入", last.main, last.mainPct],
-        ["超大单", last.super],
-        ["大单", last.big],
-        ["中单", last.mid],
-        ["小单", last.small],
-      ];
-      metrics.innerHTML = items
-        .map(([k, v, sub]) => {
-          const c = EM.clsOf(v);
-          return `<div class="metric-item">
-            <div class="m-label">${k}</div>
-            <div class="m-value ${c}">${v >= 0 ? "+" : ""}${EM.fmtBig(v)}</div>
-            ${sub !== undefined ? `<div class="m-sub ${c}">占比 ${EM.fmtPct(sub)}</div>` : ""}
-          </div>`;
-        })
-        .join("");
-
-      const dates = klines.map((k) => k.date);
-      const main = klines.map((k) => k.main);
-      const big = klines.map((k) => k.big);
-      const mid = klines.map((k) => k.mid);
-      const small = klines.map((k) => k.small);
-      const superBig = klines.map((k) => k.super);
-
-      flowChart.setOption({
-        backgroundColor: "transparent",
-        animation: false,
-        tooltip: {
-          trigger: "axis",
-          backgroundColor: "#1c2333",
-          borderColor: "#2d3648",
-          textStyle: { color: "#e6edf3" },
-          axisPointer: { type: "cross", lineStyle: { color: "#6e7d92" } },
-        },
-        grid: { left: 55, right: 20, top: 20, bottom: 30 },
-        xAxis: { type: "category", data: dates, axisLine: { lineStyle: { color: GRID_LINE } }, axisLabel: { color: TEXT_2, fontSize: 11 } },
-        yAxis: {
-          type: "value",
-          axisLabel: { color: TEXT_2, fontSize: 11, formatter: (v) => EM.fmtBig(v) },
-          splitLine: { lineStyle: { color: GRID_LINE } },
-        },
-        legend: { textStyle: { color: TEXT_2, fontSize: 11 }, top: 0 },
-        series: [
-          { name: "主力", type: "bar", data: main, stack: "f", itemStyle: { color: (p) => (main[p.dataIndex] >= 0 ? UP : DOWN) }, barMaxWidth: 14 },
-          { name: "超大单", type: "bar", data: superBig, stack: "f", itemStyle: { color: "rgba(240,68,56,0.45)" }, barMaxWidth: 14 },
-          { name: "大单", type: "bar", data: big, stack: "f", itemStyle: { color: "rgba(18,183,106,0.45)" }, barMaxWidth: 14 },
-          { name: "中单", type: "line", data: mid, showSymbol: false, lineStyle: { width: 1, color: "#60a5fa" } },
-          { name: "小单", type: "line", data: small, showSymbol: false, lineStyle: { width: 1, color: "#c084fc" } },
-        ],
-      }, true);
-    } catch (e) {
-      metrics.innerHTML = `<div class="state-box">资金流加载失败：${e.message}</div>`;
-    }
-  }
-
-  /* ============ 财务数据 ============ */
-  async function loadFinance() {
-    const tbody = document.getElementById("fin-tbody");
-    try {
-      const code = SECID.split(".")[1];
-      const market = SECID.startsWith("0.") ? "SZ" : SECID.startsWith("1.") ? "SH" : SECID.startsWith("116.") ? "HK" : "US";
-      const rows = await EM.getFinance(code, market);
+      const rows = await EM.getMainIndicators(CODE, market, 8);
+      if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="12"><div class="state-box">暂无财务数据（可能未披露）</div></td></tr>`;
+        return;
+      }
       tbody.innerHTML = rows
-        .map((d) => {
-          return `<tr>
-            <td><div class="name-cell">${d.reportDate}</div></td>
-            <td>${EM.fmtBig(d.income)}</td>
-            <td class="${EM.clsOf(d.incomeYoy)}">${EM.fmtPct(d.incomeYoy)}</td>
-            <td>${EM.fmtBig(d.netProfit)}</td>
-            <td class="${EM.clsOf(d.profitYoy)}">${EM.fmtPct(d.profitYoy)}</td>
-            <td>${EM.fmtNum(d.roe)}%</td>
-            <td>${EM.fmtNum(d.grossMargin)}%</td>
-            <td>${EM.fmtNum(d.eps)}</td>
-            <td>${EM.fmtNum(d.bps)}</td>
-          </tr>`;
-        })
+        .map((d) => `<tr>
+          <td><div class="name-cell">${d.reportDate}</div></td>
+          <td>${EM.fmtBig(d.income)}</td>
+          <td class="${EM.clsOf(d.incomeYoy)}">${EM.fmtPct(d.incomeYoy)}</td>
+          <td>${EM.fmtBig(d.netProfit)}</td>
+          <td class="${EM.clsOf(d.netProfitYoy)}">${EM.fmtPct(d.netProfitYoy)}</td>
+          <td>${EM.fmtNum(d.roe)}%</td>
+          <td>${EM.fmtNum(d.grossMargin)}%</td>
+          <td>${EM.fmtNum(d.netMargin)}%</td>
+          <td>${EM.fmtNum(d.debtRatio)}%</td>
+          <td>${EM.fmtNum(d.eps)}</td>
+          <td>${EM.fmtNum(d.bps)}</td>
+          <td>${EM.fmtNum(d.ocfPerShare)}</td>
+        </tr>`)
         .join("");
     } catch (e) {
-      tbody.innerHTML = `<tr><td colspan="9"><div class="state-box">财务数据加载失败：${e.message}</div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="12"><div class="state-box">财务指标加载失败：${e.message}</div></td></tr>`;
     }
   }
 
-  /* ============ 搜索（复用首页逻辑）============ */
+  /* ============ 三大报表摘要 ============ */
+  async function loadStatements() {
+    const bsGrid = document.getElementById("bs-grid");
+    const isGrid = document.getElementById("is-grid");
+    const cfGrid = document.getElementById("cf-grid");
+
+    try {
+      const bs = await EM.getBalanceSheet(CODE, market, 1);
+      if (bs.length) {
+        const b = bs[0];
+        bsGrid.innerHTML = `<div class="metric-grid-title">资产负债表 · ${b.reportDate}</div>
+          ${metric("总资产", b.totalAssets)}
+          ${metric("货币资金", b.monetaryFunds)}
+          ${metric("应收账款", b.accountsReceivable)}
+          ${metric("存货", b.inventory)}
+          ${metric("固定资产", b.fixedAssets)}
+          ${metric("总负债", b.totalLiabilities)}
+          ${metric("应付账款", b.accountsPayable)}
+          ${metric("短期借款", b.shortLoan)}
+          ${metric("股东权益", b.totalEquity)}`;
+      } else {
+        bsGrid.innerHTML = `<div class="state-box">暂无资产负债表数据</div>`;
+      }
+    } catch (e) {
+      bsGrid.innerHTML = `<div class="state-box">资产负债表加载失败：${e.message}</div>`;
+    }
+
+    try {
+      const is = await EM.getIncomeStatement(CODE, market, 1);
+      if (is.length) {
+        const s = is[0];
+        isGrid.innerHTML = `<div class="metric-grid-title">利润表 · ${s.reportDate}</div>
+          ${metric("营业收入", s.income)}
+          ${metric("营业成本", s.cost)}
+          ${metric("营业利润", s.operateProfit)}
+          ${metric("利润总额", s.totalProfit)}
+          ${metric("归母净利润", s.netProfit)}
+          ${metric("扣非净利润", s.deductNetProfit)}`;
+      } else {
+        isGrid.innerHTML = `<div class="state-box">暂无利润表数据</div>`;
+      }
+    } catch (e) {
+      isGrid.innerHTML = `<div class="state-box">利润表加载失败：${e.message}</div>`;
+    }
+
+    try {
+      const cf = await EM.getCashflow(CODE, market, 1);
+      if (cf.length) {
+        const c = cf[0];
+        cfGrid.innerHTML = `<div class="metric-grid-title">现金流量表 · ${c.reportDate}</div>
+          ${metric("经营活动现金流", c.operate)}
+          ${metric("投资活动现金流", c.invest)}
+          ${metric("筹资活动现金流", c.finance)}
+          ${metric("支付职工现金", c.payStaff)}`;
+      } else {
+        cfGrid.innerHTML = `<div class="state-box">暂无现金流量表数据</div>`;
+      }
+    } catch (e) {
+      cfGrid.innerHTML = `<div class="state-box">现金流量表加载失败：${e.message}</div>`;
+    }
+  }
+
+  function metric(label, v) {
+    const c = EM.clsOf(v);
+    return `<div class="metric-item"><div class="m-label">${label}</div><div class="m-value ${c}">${EM.fmtBig(v)}</div></div>`;
+  }
+
+  /* ============ 主营构成 ============ */
+  async function loadMainOp() {
+    const box = document.getElementById("mainop-box");
+    try {
+      const { reportDate, groups } = await EM.getMainOperation(CODE, market, 30);
+      if (!Object.keys(groups).length) {
+        box.innerHTML = `<div class="state-box">暂无主营构成数据</div>`;
+        return;
+      }
+      let html = `<div class="update-time" style="text-align:left;margin-bottom:8px;">报告期：${reportDate}</div>`;
+      for (const [type, items] of Object.entries(groups)) {
+        html += `<div class="metric-grid-title">${type}</div>
+          <div class="table-wrap" style="margin-bottom:14px;">
+            <table class="stock-table">
+              <thead><tr><th>项目</th><th>收入</th><th>收入占比</th><th>成本</th><th>毛利率</th></tr></thead>
+              <tbody>
+                ${items.map((d) => `<tr>
+                  <td><div class="name-cell">${d.item}</div></td>
+                  <td>${EM.fmtBig(d.income)}</td>
+                  <td>${EM.fmtNum(d.incomeRatio)}%</td>
+                  <td>${EM.fmtBig(d.cost)}</td>
+                  <td>${EM.fmtNum(d.grossMargin)}%</td>
+                </tr>`).join("")}
+              </tbody>
+            </table>
+          </div>`;
+      }
+      box.innerHTML = html;
+    } catch (e) {
+      box.innerHTML = `<div class="state-box">主营构成加载失败：${e.message}</div>`;
+    }
+  }
+
+  /* ============ 搜索（同首页）============ */
   function initSearch() {
     const input = document.getElementById("search-input");
     const box = document.getElementById("search-suggest");
@@ -333,14 +183,14 @@
         try {
           const list = await EM.searchStock(kw);
           box.innerHTML = list.length
-            ? list.map((d) => `<div class="suggest-item" data-secid="${d.secid}" data-name="${encodeURIComponent(d.name)}">
+            ? list.map((d) => `<div class="suggest-item" data-code="${d.code}" data-name="${encodeURIComponent(d.name)}">
                 <span class="s-name">${d.name}</span><span class="s-code">${d.code}</span><span class="s-type">${d.type}</span>
               </div>`).join("")
             : `<div class="suggest-item"><span class="s-name" style="color:var(--text-3)">无匹配结果</span></div>`;
           box.classList.add("open");
           box.querySelectorAll(".suggest-item").forEach((el) => {
             el.addEventListener("click", () => {
-              location.href = `stock.html?secid=${el.dataset.secid}&name=${el.dataset.name}`;
+              location.href = `stock.html?code=${el.dataset.code}&name=${el.dataset.name}`;
             });
           });
         } catch (e) { /* 静默 */ }
@@ -351,33 +201,10 @@
     });
   }
 
-  /* ============ 工具栏事件 ============ */
-  function bindToolbar() {
-    document.querySelectorAll(".chart-toolbar .chip").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const { kind, klt, fqt } = btn.dataset;
-        if (kind) {
-          document.querySelectorAll(".chart-toolbar .chip[data-kind]").forEach((x) => x.classList.remove("active"));
-          btn.classList.add("active");
-          curKind = kind;
-          curKlt = Number(klt || curKlt);
-          curKind === "trend" ? drawTrend() : drawKline();
-        } else if (fqt !== undefined) {
-          document.querySelectorAll(".chart-toolbar .chip[data-fqt]").forEach((x) => x.classList.remove("active"));
-          btn.classList.add("active");
-          curFqt = Number(fqt);
-          if (curKind === "kline") drawKline();
-        }
-      });
-    });
-  }
-
   /* ============ 初始化 ============ */
-  initCharts();
-  bindToolbar();
+  loadProfile();
+  loadIndicators();
+  loadStatements();
+  loadMainOp();
   initSearch();
-  loadQuote();
-  drawTrend();
-  drawFlow();
-  loadFinance();
 })();

@@ -426,6 +426,47 @@ a:hover { text-decoration: underline; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ===== 基本面页面 ===== */
+/* 公司概况网格 */
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.profile-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+}
+
+.profile-item .p-label { color: var(--text-3); font-size: 12px; }
+
+.profile-item .p-value { font-size: 13px; margin-top: 3px; word-break: break-all; }
+
+/* 三大报表分组标题 */
+.metric-grid-title {
+  grid-column: 1 / -1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-2);
+  margin: 6px 0 4px;
+}
+
+/* 分页 */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.pager .page-info { color: var(--text-2); font-size: 13px; }
+
+.chip:disabled { opacity: 0.4; cursor: not-allowed; }
+
 /* ===== 页脚 ===== */
 .site-footer {
   border-top: 1px solid var(--border);
