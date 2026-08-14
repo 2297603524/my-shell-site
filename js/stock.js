@@ -7,13 +7,66 @@
   const NAME = params.get("name") || "";
   const market = CODE.startsWith("6") || CODE.startsWith("9") ? "SH" : "SZ";
 
+  /* ============ 指标释义问号 ============ */
+  function initHints() {
+    const tip = document.createElement("div");
+    tip.className = "tip-float";
+    document.body.appendChild(tip);
+    let hideTimer = null;
+
+    document.addEventListener("mouseover", (e) => {
+      const h = e.target.closest(".hint");
+      if (!h) return;
+      const key = h.dataset.key;
+      const text = EM.METRIC_TIPS[key];
+      if (!text) return;
+      tip.textContent = text;
+      tip.classList.add("show");
+      const rect = h.getBoundingClientRect();
+      let left = rect.left + rect.width / 2;
+      let top = rect.top - 10;
+      const tw = tip.offsetWidth;
+      const th = tip.offsetHeight;
+      left = Math.min(Math.max(8, left - tw / 2), window.innerWidth - tw - 8);
+      if (top - th < 0) top = rect.bottom + 10;
+      else top = top - th;
+      tip.style.left = left + "px";
+      tip.style.top = top + "px";
+      clearTimeout(hideTimer);
+    });
+    document.addEventListener("mouseout", (e) => {
+      if (e.target.closest(".hint")) {
+        hideTimer = setTimeout(() => tip.classList.remove("show"), 80);
+      }
+    });
+  }
+
+  /* ============ 自选按钮 ============ */
+  function initWatchBtn() {
+    const btn = document.getElementById("watch-btn");
+    const star = btn.querySelector(".star");
+    const txt = btn.querySelector(".txt");
+    const refresh = () => {
+      const w = EM.isWatched(CODE);
+      btn.classList.toggle("watched", w);
+      star.textContent = w ? "★" : "☆";
+      txt.textContent = w ? "已自选" : "加入自选";
+    };
+    refresh();
+    btn.addEventListener("click", () => {
+      if (EM.isWatched(CODE)) EM.removeWatch(CODE);
+      else EM.addWatch(CODE, NAME || CODE, market);
+      refresh();
+    });
+  }
+
   /* ============ 公司概况 ============ */
   async function loadProfile() {
     const box = document.getElementById("profile-card");
     try {
       const p = await EM.getCompanyProfile(CODE, market);
       document.title = `${p.name} ${p.code} · 股析`;
-      box.innerHTML = `<div class="card-title">公司概况</div>
+      box.innerHTML = `<div class="card-title">公司概况<button class="watch-btn" id="watch-btn"><span class="star">☆</span><span class="txt">加入自选</span></button></div>
         <div class="profile-grid">
           <div class="profile-item"><div class="p-label">公司全称</div><div class="p-value">${p.fullName || "--"}</div></div>
           <div class="profile-item"><div class="p-label">英文名称</div><div class="p-value">${p.enName || "--"}</div></div>
@@ -35,6 +88,7 @@
           <div class="profile-item"><div class="p-label">注册资本</div><div class="p-value">${p.regCapital || "--"}</div></div>
           <div class="profile-item"><div class="p-label">上市日期</div><div class="p-value">${p.listDate || "--"}</div></div>
         </div>`;
+      initWatchBtn();
     } catch (e) {
       box.innerHTML = `<div class="card-title">公司概况</div><div class="state-box">公司概况加载失败：${e.message}</div>`;
     }
@@ -81,15 +135,15 @@
       if (bs.length) {
         const b = bs[0];
         bsGrid.innerHTML = `<div class="metric-grid-title">资产负债表 · ${b.reportDate}</div>
-          ${metric("总资产", b.totalAssets)}
-          ${metric("货币资金", b.monetaryFunds)}
-          ${metric("应收账款", b.accountsReceivable)}
-          ${metric("存货", b.inventory)}
-          ${metric("固定资产", b.fixedAssets)}
-          ${metric("总负债", b.totalLiabilities)}
-          ${metric("应付账款", b.accountsPayable)}
-          ${metric("短期借款", b.shortLoan)}
-          ${metric("股东权益", b.totalEquity)}`;
+          ${metric("总资产", b.totalAssets, "totalAssets")}
+          ${metric("货币资金", b.monetaryFunds, "monetaryFunds")}
+          ${metric("应收账款", b.accountsReceivable, "accountsReceivable")}
+          ${metric("存货", b.inventory, "inventory")}
+          ${metric("固定资产", b.fixedAssets, "fixedAssets")}
+          ${metric("总负债", b.totalLiabilities, "totalLiabilities")}
+          ${metric("应付账款", b.accountsPayable, "accountsPayable")}
+          ${metric("短期借款", b.shortLoan, "shortLoan")}
+          ${metric("股东权益", b.totalEquity, "totalEquity")}`;
       } else {
         bsGrid.innerHTML = `<div class="state-box">暂无资产负债表数据</div>`;
       }
@@ -102,12 +156,12 @@
       if (is.length) {
         const s = is[0];
         isGrid.innerHTML = `<div class="metric-grid-title">利润表 · ${s.reportDate}</div>
-          ${metric("营业收入", s.income)}
-          ${metric("营业成本", s.cost)}
-          ${metric("营业利润", s.operateProfit)}
-          ${metric("利润总额", s.totalProfit)}
-          ${metric("归母净利润", s.netProfit)}
-          ${metric("扣非净利润", s.deductNetProfit)}`;
+          ${metric("营业收入", s.income, "income")}
+          ${metric("营业成本", s.cost, "operateCost")}
+          ${metric("营业利润", s.operateProfit, "operateProfit")}
+          ${metric("利润总额", s.totalProfit, "totalProfit")}
+          ${metric("归母净利润", s.netProfit, "netProfit")}
+          ${metric("扣非净利润", s.deductNetProfit, "deductNetProfit")}`;
       } else {
         isGrid.innerHTML = `<div class="state-box">暂无利润表数据</div>`;
       }
@@ -120,10 +174,10 @@
       if (cf.length) {
         const c = cf[0];
         cfGrid.innerHTML = `<div class="metric-grid-title">现金流量表 · ${c.reportDate}</div>
-          ${metric("经营活动现金流", c.operate)}
-          ${metric("投资活动现金流", c.invest)}
-          ${metric("筹资活动现金流", c.finance)}
-          ${metric("支付职工现金", c.payStaff)}`;
+          ${metric("经营活动现金流", c.operate, "cashOperate")}
+          ${metric("投资活动现金流", c.invest, "cashInvest")}
+          ${metric("筹资活动现金流", c.finance, "cashFinance")}
+          ${metric("支付职工现金", c.payStaff, "payStaff")}`;
       } else {
         cfGrid.innerHTML = `<div class="state-box">暂无现金流量表数据</div>`;
       }
@@ -132,9 +186,10 @@
     }
   }
 
-  function metric(label, v) {
+  function metric(label, v, key) {
     const c = EM.clsOf(v);
-    return `<div class="metric-item"><div class="m-label">${label}</div><div class="m-value ${c}">${EM.fmtBig(v)}</div></div>`;
+    const hint = key ? `<i class="hint" data-key="${key}">?</i>` : "";
+    return `<div class="metric-item"><div class="m-label">${label}${hint}</div><div class="m-value ${c}">${EM.fmtBig(v)}</div></div>`;
   }
 
   /* ============ 主营构成 ============ */
@@ -151,7 +206,7 @@
         html += `<div class="metric-grid-title">${type}</div>
           <div class="table-wrap" style="margin-bottom:14px;">
             <table class="stock-table">
-              <thead><tr><th>项目</th><th>收入</th><th>收入占比</th><th>成本</th><th>毛利率</th></tr></thead>
+              <thead><tr><th>项目</th><th>收入<i class="hint" data-key="mainopIncome">?</i></th><th>收入占比<i class="hint" data-key="mainopRatio">?</i></th><th>成本<i class="hint" data-key="mainopCost">?</i></th><th>毛利率<i class="hint" data-key="mainopMargin">?</i></th></tr></thead>
               <tbody>
                 ${items.map((d) => `<tr>
                   <td><div class="name-cell">${d.item}</div></td>
@@ -207,4 +262,5 @@
   loadStatements();
   loadMainOp();
   initSearch();
+  initHints();
 })();
