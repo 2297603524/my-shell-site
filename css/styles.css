@@ -467,6 +467,117 @@ a:hover { text-decoration: underline; }
 
 .chip:disabled { opacity: 0.4; cursor: not-allowed; }
 
+/* ===== 指标释义问号 ===== */
+.hint {
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  line-height: 15px;
+  text-align: center;
+  border-radius: 50%;
+  background: var(--border);
+  color: var(--text-2);
+  font-size: 10px;
+  font-style: normal;
+  cursor: help;
+  margin-left: 4px;
+  vertical-align: middle;
+  user-select: none;
+  transition: background 0.15s, color 0.15s;
+}
+
+.hint:hover { background: var(--accent); color: #fff; }
+
+/* 浮动释义提示层（JS 控制，避免被表格滚动容器裁剪） */
+.tip-float {
+  position: fixed;
+  z-index: 9999;
+  max-width: 300px;
+  background: #1c2333;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 8px 12px;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s;
+  word-break: break-all;
+}
+
+.tip-float.show { opacity: 1; }
+
+/* ===== 自选股 ===== */
+.watch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 14px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-2);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-left: 10px;
+  vertical-align: middle;
+}
+
+.watch-btn:hover { border-color: var(--accent); color: var(--accent-2); }
+
+.watch-btn.watched {
+  background: rgba(240, 68, 56, 0.12);
+  border-color: var(--up);
+  color: var(--up);
+}
+
+.watch-btn .star { font-size: 14px; }
+
+.watch-card .watch-empty {
+  color: var(--text-3);
+  font-size: 13px;
+  padding: 10px 0;
+  text-align: center;
+}
+
+.watch-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.watch-item:hover { background: var(--bg-hover); }
+
+.watch-item .w-name { color: var(--text); font-weight: 500; min-width: 90px; }
+
+.watch-item .w-code { color: var(--text-3); font-size: 12px; font-family: ui-monospace, Consolas, monospace; }
+
+.watch-item .w-nums {
+  margin-left: auto;
+  color: var(--text-2);
+  font-size: 12px;
+  font-family: ui-monospace, Consolas, monospace;
+  display: flex;
+  gap: 14px;
+}
+
+.watch-item .w-del {
+  color: var(--text-3);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0 4px;
+  border-radius: 4px;
+}
+
+.watch-item .w-del:hover { color: var(--up); background: var(--up-bg); }
+
 /* ===== 页脚 ===== */
 .site-footer {
   border-top: 1px solid var(--border);
