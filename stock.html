@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="个股行情分析 - 实时行情、分时、K线、资金流向、财务数据">
+  <title>个股分析 · 股析</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📈</text></svg>">
+</head>
+<body>
+  <header class="site-header">
+    <nav class="navbar">
+      <a class="brand" href="index.html"><span class="logo">股</span>股析</a>
+      <div class="search-box">
+        <input type="text" id="search-input" placeholder="搜索代码 / 名称 / 拼音，如 00700、腾讯" autocomplete="off">
+        <div class="search-suggest" id="search-suggest"></div>
+      </div>
+    </nav>
+  </header>
+
+  <main class="container">
+    <!-- 股票头部 -->
+    <div class="stock-head" id="stock-head">
+      <div class="state-box"><div class="spin"></div>加载个股数据中…</div>
+    </div>
+
+    <!-- 关键报价 -->
+    <div class="quote-grid" id="quote-grid"></div>
+
+    <!-- K线/分时图 -->
+    <div class="card">
+      <div class="chart-toolbar">
+        <button class="chip active" data-kind="trend">分时</button>
+        <button class="chip" data-kind="kline" data-klt="101">日K</button>
+        <button class="chip" data-kind="kline" data-klt="102">周K</button>
+        <button class="chip" data-kind="kline" data-klt="103">月K</button>
+        <span class="spacer"></span>
+        <button class="chip" data-fqt="1">前复权</button>
+        <button class="chip" data-fqt="0">不复权</button>
+        <button class="chip" data-fqt="2">后复权</button>
+      </div>
+      <div class="chart-box" id="main-chart"></div>
+    </div>
+
+    <!-- 资金流向 -->
+    <div class="card">
+      <div class="card-title">资金流向（近60日主力/超大/大单/中单/小单净流入）</div>
+      <div class="metric-grid" id="flow-metrics"></div>
+      <div class="chart-box" id="flow-chart" style="height:260px;margin-top:14px;"></div>
+    </div>
+
+    <!-- 财务数据 -->
+    <div class="card">
+      <div class="card-title">财务业绩（近8期报告）</div>
+      <div class="table-wrap">
+        <table class="stock-table" id="fin-table">
+          <thead>
+            <tr>
+              <th>报告期</th>
+              <th>营业总收入</th>
+              <th>营收同比</th>
+              <th>归母净利润</th>
+              <th>净利同比</th>
+              <th>ROE</th>
+              <th>毛利率</th>
+              <th>EPS</th>
+              <th>每股净资产</th>
+            </tr>
+          </thead>
+          <tbody id="fin-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <p>股析 · 数据来源：东方财富公开接口 · 行情数据仅供参考，不构成投资建议</p>
+    <p style="margin-top:4px;">市场有风险，投资需谨慎</p>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/stock.js"></script>
+</body>
+</html>

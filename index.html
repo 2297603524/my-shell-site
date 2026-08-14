@@ -3,44 +3,94 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="空壳网站 - 项目骨架">
-  <title>我的空壳网站</title>
+  <meta name="description" content="全网股票行情分析 - A股/港股/美股实时行情、K线、资金流、财务数据">
+  <title>股析 · 全网股票行情分析</title>
   <link rel="stylesheet" href="css/styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📈</text></svg>">
 </head>
 <body>
   <header class="site-header">
     <nav class="navbar">
-      <div class="brand">🚀 空壳网站</div>
-      <ul class="nav-links">
-        <li><a href="#home">首页</a></li>
-        <li><a href="#about">关于</a></li>
-        <li><a href="#contact">联系</a></li>
-      </ul>
+      <a class="brand" href="index.html"><span class="logo">股</span>股析</a>
+      <div class="market-tabs">
+        <a href="#market-a" class="active" data-market="a">A股</a>
+        <a href="#market-hk" data-market="hk">港股</a>
+        <a href="#market-us" data-market="us">美股</a>
+      </div>
+      <div class="search-box">
+        <input type="text" id="search-input" placeholder="搜索代码 / 名称 / 拼音，如 600519、茅台、GZMT" autocomplete="off">
+        <div class="search-suggest" id="search-suggest"></div>
+      </div>
     </nav>
   </header>
 
-  <main>
-    <section id="home" class="hero">
-      <h1>你好，世界！</h1>
-      <p>这是一个空壳网站骨架，等待你来填充内容。</p>
-      <button id="demo-btn" class="btn">点我试试</button>
-    </section>
+  <main class="container">
+    <!-- 指数行情 -->
+    <div class="index-grid" id="index-grid">
+      <div class="state-box"><div class="spin"></div>加载指数行情中…</div>
+    </div>
+    <div class="update-time" id="update-time"></div>
 
-    <section id="about" class="section">
-      <h2>关于本站</h2>
-      <p>本网站由 WorkBuddy 创建，已部署到 GitHub Pages。你可以自由修改这些文件，构建属于自己的网站。</p>
-    </section>
+    <!-- 涨跌榜 -->
+    <div class="card">
+      <div class="tab-bar">
+        <button class="tab-btn active" data-sort="f3">涨幅榜</button>
+        <button class="tab-btn" data-sort="f3" data-order="asc">跌幅榜</button>
+        <button class="tab-btn" data-sort="f6">成交额榜</button>
+        <button class="tab-btn" data-sort="f20">市值榜</button>
+        <button class="tab-btn" data-sort="f8">换手率榜</button>
+        <button class="tab-btn" data-sort="f62">主力资金榜</button>
+        <span class="tab-market" id="tab-market-label" style="margin-left:auto;color:var(--text-3);font-size:12px;"></span>
+      </div>
+      <div class="table-wrap">
+        <table class="stock-table" id="stock-table">
+          <thead>
+            <tr>
+              <th>名称 / 代码</th>
+              <th>最新价</th>
+              <th>涨跌幅</th>
+              <th>涨跌额</th>
+              <th>成交额</th>
+              <th>换手率</th>
+              <th>市盈率</th>
+              <th>市净率</th>
+              <th>总市值</th>
+              <th>年初至今</th>
+            </tr>
+          </thead>
+          <tbody id="stock-tbody">
+            <tr><td colspan="10"><div class="state-box"><div class="spin"></div>加载行情中…</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
 
-    <section id="contact" class="section">
-      <h2>联系我们</h2>
-      <p>邮箱：<a href="mailto:you@example.com">you@example.com</a></p>
-    </section>
+    <!-- 行业板块 -->
+    <div class="card">
+      <div class="card-title">行业板块涨跌</div>
+      <div class="table-wrap">
+        <table class="stock-table" id="sector-table">
+          <thead>
+            <tr>
+              <th>板块名称</th>
+              <th>涨跌幅</th>
+              <th>涨跌额</th>
+              <th>上涨/下跌家数</th>
+              <th>领涨股</th>
+            </tr>
+          </thead>
+          <tbody id="sector-tbody"></tbody>
+        </table>
+      </div>
+    </div>
   </main>
 
   <footer class="site-footer">
-    <p>© 2026 空壳网站 · Powered by GitHub Pages</p>
+    <p>股析 · 数据来源：东方财富公开接口（A股/港股/美股实时行情）· 行情数据仅供参考，不构成投资建议</p>
+    <p style="margin-top:4px;">市场有风险，投资需谨慎</p>
   </footer>
 
-  <script src="js/script.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/index.js"></script>
 </body>
 </html>
