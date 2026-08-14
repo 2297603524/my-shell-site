@@ -256,11 +256,82 @@
     });
   }
 
+  /* ============ 估值打分 ============ */
+  async function loadScore() {
+    const box = document.getElementById("score-card");
+    try {
+      const [valuation, forecast] = await Promise.all([
+        EM.getValuation(CODE, market).catch(() => null),
+        EM.getProfitForecast(CODE).catch(() => null),
+      ]);
+      const score = EM.calcValuationScore(valuation, forecast);
+      if (!score) {
+        box.innerHTML = `<div class="card-title">估值打分（100分制 · 越高越高估）<i class="hint" data-key="scoreExplain">?</i></div>
+          <div class="state-box">暂无估值数据，无法打分</div>`;
+        return;
+      }
+      const parts = score.parts
+        .map((p) => {
+          const color = p.score === null ? "var(--text-3)" : p.score >= (p.weight * 2 / 3) ? "var(--up)" : p.score >= (p.weight / 3) ? "#eab308" : "var(--down)";
+          const width = p.score === null ? 0 : (p.score / p.weight * 100);
+          return `<div class="score-part">
+            <div class="sp-head"><span class="sp-name">${p.name}</span><span class="sp-score" style="color:${p.score === null ? "var(--text-3)" : color}">${p.score === null ? "--" : p.score + " / " + p.weight}</span></div>
+            <div class="sp-note">${p.note}</div>
+            <div class="score-bar"><i style="width:${width}%;background:${p.score === null ? "var(--border)" : color}"></i></div>
+          </div>`;
+        })
+        .join("");
+      box.innerHTML = `<div class="card-title">估值打分（100分制 · 越高越高估）<i class="hint" data-key="scoreExplain">?</i></div>
+        <div class="score-hero">
+          <div class="score-ring ${score.cls}"><div class="score-num">${score.total}</div><div class="score-label">${score.label}</div></div>
+          <div class="score-desc">
+            <b>综合估值评分：${score.total} 分（${score.label}）</b><br>
+            PEG：${score.peg !== null ? score.peg.toFixed(2) : "--"} ｜ 预测增速：${score.growth !== null ? score.growth.toFixed(1) + "%" : "--"} ｜ PE(TTM)：${valuation && valuation.peTtm ? valuation.peTtm.toFixed(1) : "--"}
+          </div>
+        </div>
+        <div class="score-parts">${parts}</div>`;
+    } catch (e) {
+      box.innerHTML = `<div class="card-title">估值打分（100分制 · 越高越高估）</div><div class="state-box">估值打分失败：${e.message}</div>`;
+    }
+  }
+
+  /* ============ 盈利预测 ============ */
+  async function loadForecast() {
+    const box = document.getElementById("forecast-card");
+    try {
+      const [forecast, valuation] = await Promise.all([
+        EM.getProfitForecast(CODE).catch(() => null),
+        EM.getValuation(CODE, market).catch(() => null),
+      ]);
+      if (!forecast) {
+        box.innerHTML = `<div class="card-title">盈利预测（券商一致预期）</div><div class="state-box">暂无机构盈利预测数据</div>`;
+        return;
+      }
+      const totalShares = valuation && valuation.totalShares;
+      const profit = EM.forecastProfit(forecast, totalShares);
+      const ratingTotal = (forecast.buyNum || 0) + (forecast.addNum || 0) + (forecast.neutralNum || 0) + (forecast.reduceNum || 0) + (forecast.saleNum || 0);
+      const aim = forecast.aimPriceMax ? `${EM.fmtNum(forecast.aimPriceMin)} ~ ${EM.fmtNum(forecast.aimPriceMax)}` : "--";
+      box.innerHTML = `<div class="card-title">盈利预测（券商一致预期）</div>
+        <div class="forecast-grid">
+          <div class="metric-item"><div class="m-label">覆盖机构</div><div class="m-value">${forecast.orgNum || 0} 家</div><div class="m-sub">买入${forecast.buyNum || 0} · 增持${forecast.addNum || 0} · 中性${forecast.neutralNum || 0} · 减持${forecast.reduceNum || 0} · 卖出${forecast.saleNum || 0}</div></div>
+          <div class="metric-item"><div class="m-label">预测EPS ${forecast.yearNext || ""}</div><div class="m-value">${EM.fmtNum(forecast.epsNext)}</div></div>
+          <div class="metric-item"><div class="m-label">预测EPS ${forecast.yearNext2 || ""}</div><div class="m-value">${EM.fmtNum(forecast.epsNext2)}</div></div>
+          <div class="metric-item"><div class="m-label">预测EPS ${forecast.yearNext3 || ""}</div><div class="m-value">${EM.fmtNum(forecast.epsNext3)}</div></div>
+          <div class="metric-item"><div class="m-label">预测净利润 ${forecast.yearNext || ""}</div><div class="m-value">${profit && profit.next ? EM.fmtBig(profit.next) : "--"}</div></div>
+          <div class="metric-item"><div class="m-label">目标价区间</div><div class="m-value" style="font-size:15px;">${aim}</div><div class="m-sub">现价 ${valuation && valuation.price ? EM.fmtNum(valuation.price) : "--"}</div></div>
+        </div>`;
+    } catch (e) {
+      box.innerHTML = `<div class="card-title">盈利预测（券商一致预期）</div><div class="state-box">盈利预测加载失败：${e.message}</div>`;
+    }
+  }
+
   /* ============ 初始化 ============ */
   loadProfile();
   loadIndicators();
   loadStatements();
   loadMainOp();
+  loadScore();
+  loadForecast();
   initSearch();
   initHints();
 })();
