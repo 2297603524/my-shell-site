@@ -194,6 +194,43 @@ const EM = (() => {
     }));
   }
 
+  /* 指数兜底（腾讯）：secid 东财 -> 腾讯代码 */
+  const TX_INDEX_MAP = {
+    "1.000001": "sh000001", "0.399001": "sz399001", "0.399006": "sz399006",
+    "1.000688": "sh000688", "100.HSI": "hkHSI", "100.NDX": "usNDX",
+  };
+  async function getIndicesSafe() {
+    try {
+      return await getIndices();
+    } catch (e) {
+      const codes = Object.values(TX_INDEX_MAP).join(",");
+      const res = await fetch(TX_QT + codes, { headers: { Accept: "*/*" } });
+      if (!res.ok) throw new Error("TX HTTP " + res.status);
+      const buf = await res.arrayBuffer();
+      const text = new TextDecoder("gbk").decode(buf);
+      const out = [];
+      for (const line of text.split(";")) {
+        const m = line.match(/="([^"]+)"/);
+        if (!m) continue;
+        const p = m[1].split("~");
+        if (p.length < 35) continue;
+        out.push({
+          code: p[2] || "",
+          name: p[1] || "",
+          price: num(p[3]),
+          pct: num(p[32]),
+          change: num(p[31]),
+          high: num(p[33]),
+          low: num(p[34]),
+          open: num(p[5]),
+          preClose: num(p[4]),
+          market: p[0] === "1" ? "1" : p[0] === "51" ? "0" : "100",
+        });
+      }
+      return out;
+    }
+  }
+
   /* ============ 行情列表（A股/港股/美股）============ */
   /* sortBy: f3涨跌幅 f6成交额 f20总市值 f8换手率 f5成交量 */
   async function getStockList({ market = "a", page = 1, pageSize = 60, sortBy = "f3", order = "desc" } = {}) {
@@ -483,7 +520,7 @@ const EM = (() => {
   }
 
   return {
-    getIndices,
+    getIndices: getIndicesSafe,
     getStockList,
     getStockQuote: getStockQuoteSafe,
     getKline: getKlineSafe,
