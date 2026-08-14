@@ -66,27 +66,28 @@
     try {
       const p = await EM.getCompanyProfile(CODE, market);
       document.title = `${p.name} ${p.code} · 股析`;
-      box.innerHTML = `<div class="card-title">公司概况<button class="watch-btn" id="watch-btn"><span class="star">☆</span><span class="txt">加入自选</span></button></div>
-        <div class="profile-grid">
+      box.innerHTML = `<div class="stock-hero">
+          <div class="stock-id">
+            <h1>${p.name}<span class="tag">${p.securityType || "A股"}</span><button class="watch-btn" id="watch-btn"><span class="star">☆</span><span class="txt">加自选</span></button></h1>
+            <div class="code-line">${p.code} · ${p.tradeMarket || "--"} · 上市 ${p.listDate || "--"}</div>
+            <div class="industry-line">${p.industryEM || p.industryCSRC || "--"}</div>
+          </div>
+        </div>
+        <div class="profile-grid" style="margin-top:16px;">
           <div class="profile-item"><div class="p-label">公司全称</div><div class="p-value">${p.fullName || "--"}</div></div>
           <div class="profile-item"><div class="p-label">英文名称</div><div class="p-value">${p.enName || "--"}</div></div>
           <div class="profile-item"><div class="p-label">曾用名</div><div class="p-value">${p.formerName || "--"}</div></div>
-          <div class="profile-item"><div class="p-label">证券类型</div><div class="p-value">${p.securityType || "--"}</div></div>
-          <div class="profile-item"><div class="p-label">上市交易所</div><div class="p-value">${p.tradeMarket || "--"}</div></div>
-          <div class="profile-item"><div class="p-label">行业（申万）</div><div class="p-value">${p.industryEM || "--"}</div></div>
           <div class="profile-item"><div class="p-label">证监会行业</div><div class="p-value">${p.industryCSRC || "--"}</div></div>
           <div class="profile-item"><div class="p-label">董事长</div><div class="p-value">${p.chairman || "--"}</div></div>
           <div class="profile-item"><div class="p-label">总经理</div><div class="p-value">${p.president || "--"}</div></div>
           <div class="profile-item"><div class="p-label">董秘</div><div class="p-value">${p.secretary || "--"}</div></div>
           <div class="profile-item"><div class="p-label">法定代表人</div><div class="p-value">${p.legalPerson || "--"}</div></div>
-          <div class="profile-item"><div class="p-label">独立董事</div><div class="p-value">${p.independentDirectors || "--"}</div></div>
           <div class="profile-item"><div class="p-label">电话</div><div class="p-value">${p.tel || "--"}</div></div>
           <div class="profile-item"><div class="p-label">邮箱</div><div class="p-value">${p.email || "--"}</div></div>
           <div class="profile-item"><div class="p-label">网站</div><div class="p-value">${p.website ? `<a href="${p.website}" target="_blank" rel="noopener">${p.website}</a>` : "--"}</div></div>
           <div class="profile-item"><div class="p-label">注册地址</div><div class="p-value">${p.regAddress || "--"}</div></div>
           <div class="profile-item"><div class="p-label">办公地址</div><div class="p-value">${p.address || "--"}</div></div>
           <div class="profile-item"><div class="p-label">注册资本</div><div class="p-value">${p.regCapital || "--"}</div></div>
-          <div class="profile-item"><div class="p-label">上市日期</div><div class="p-value">${p.listDate || "--"}</div></div>
         </div>`;
       initWatchBtn();
     } catch (e) {
