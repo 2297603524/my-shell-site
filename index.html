@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="全网股票基本面分析 - 按行业分类浏览、盈利预测、机构评级">
+  <meta name="description" content="全网股票基本面分析 - 按行业分类浏览、盈利预测、机构评级、估值打分">
   <title>股析 · 股票基本面分析</title>
   <link rel="stylesheet" href="css/styles.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
@@ -13,7 +13,7 @@
     <nav class="navbar">
       <a class="brand" href="index.html"><span class="logo">析</span>股析</a>
       <div class="search-box">
-        <input type="text" id="search-input" placeholder="输入代码 / 名称 快速选股，如 600519、茅台" autocomplete="off">
+        <input type="text" id="search-input" placeholder="输入代码 / 名称，如 600519、茅台" autocomplete="off">
         <div class="search-suggest" id="search-suggest"></div>
       </div>
     </nav>
@@ -22,35 +22,46 @@
   <main class="container">
     <!-- 自选股 -->
     <div class="card watch-card" id="watch-card">
-      <div class="card-title">我的自选<span style="font-size:12px;color:var(--text-3);font-weight:400;">（在个股页点击 ☆ 加入自选）</span></div>
+      <div class="card-title">我的自选<span class="sub">（在个股页点击 ☆ 加入自选）</span></div>
       <div id="watch-list"><div class="state-box"><div class="spin"></div>加载自选中…</div></div>
     </div>
 
-    <!-- 行业分类 -->
-    <div class="card">
-      <div class="card-title">行业分类<span style="font-size:12px;color:var(--text-3);font-weight:400;">（点击行业筛选 · 数据为机构盈利预测覆盖的股票）</span></div>
-      <div class="industry-nav" id="industry-nav">
-        <button class="chip active" data-ind="全部">全部</button>
-      </div>
-      <div class="update-time" id="update-time"></div>
-      <div class="table-wrap">
-        <table class="stock-table" id="fin-table">
-          <thead>
-            <tr>
-              <th>名称 / 代码</th>
-              <th>行业<i class="hint" data-key="industry">?</i></th>
-              <th>机构评级<i class="hint" data-key="rating">?</i></th>
-              <th>预测EPS(下年)<i class="hint" data-key="epsNext">?</i></th>
-              <th>预测EPS(后年)<i class="hint" data-key="epsNext2">?</i></th>
-              <th>预测增速<i class="hint" data-key="forecastGrowth">?</i></th>
-              <th>目标价区间<i class="hint" data-key="aimPrice">?</i></th>
-            </tr>
-          </thead>
-          <tbody id="fin-tbody">
-            <tr><td colspan="7"><div class="state-box"><div class="spin"></div>加载数据中…</div></td></tr>
-          </tbody>
-        </table>
-      </div>
+    <div class="home-layout">
+      <!-- 左侧行业导航 -->
+      <aside class="home-sidebar">
+        <div class="card" style="padding:14px 10px;">
+          <div class="card-title" style="padding:0 12px;font-size:14px;">行业分类</div>
+          <div class="industry-nav" id="industry-nav">
+            <button class="chip active" data-ind="全部">全部<span class="ind-count">0</span></button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 右侧股票列表 -->
+      <section>
+        <div class="card">
+          <div class="card-title">盈利预测覆盖的 A 股<span class="sub">（券商一致预期 · 点击行业筛选）</span></div>
+          <div class="update-time" id="update-time"></div>
+          <div class="table-wrap">
+            <table class="stock-table" id="fin-table">
+              <thead>
+                <tr>
+                  <th>名称 / 代码</th>
+                  <th>行业<i class="hint" data-key="industry">?</i></th>
+                  <th>机构评级<i class="hint" data-key="rating">?</i></th>
+                  <th>预测EPS(下年)<i class="hint" data-key="epsNext">?</i></th>
+                  <th>预测EPS(后年)<i class="hint" data-key="epsNext2">?</i></th>
+                  <th>预测增速<i class="hint" data-key="forecastGrowth">?</i></th>
+                  <th>目标价区间<i class="hint" data-key="aimPrice">?</i></th>
+                </tr>
+              </thead>
+              <tbody id="fin-tbody">
+                <tr><td colspan="7"><div class="state-box"><div class="spin"></div>加载数据中…</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
     </div>
   </main>
 
