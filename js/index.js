@@ -1,10 +1,11 @@
-/* ===== 首页逻辑：自选股 + A股财务排行 + 搜索 + 指标释义 ===== */
+/* ===== 首页逻辑：自选股 + 行业分类 + 盈利预测列表 + 快速选股 ===== */
 (function () {
   "use strict";
 
-  let curSort = "PARENT_NETPROFIT";
-  let curPage = 1;
-  const PAGE_SIZE = 50;
+  let allStocks = [];        // 全量预测数据
+  let curIndustry = "全部";
+  let filtered = [];         // 当前行业股票
+  let sortKey = "orgNum";    // 默认按机构数排序
 
   /* ============ 指标释义问号 ============ */
   function initHints() {
@@ -16,8 +17,7 @@
     document.addEventListener("mouseover", (e) => {
       const h = e.target.closest(".hint");
       if (!h) return;
-      const key = h.dataset.key;
-      const text = EM.METRIC_TIPS[key];
+      const text = EM.METRIC_TIPS[h.dataset.key];
       if (!text) return;
       tip.textContent = text;
       tip.classList.add("show");
@@ -86,116 +86,165 @@
     }
   }
 
-  /* ============ 财务排行列表 ============ */
-  async function loadList() {
+  /* ============ 行业分类 + 股票列表 ============ */
+  async function loadIndustries() {
+    const nav = document.getElementById("industry-nav");
     const tbody = document.getElementById("fin-tbody");
-    tbody.innerHTML = `<tr><td colspan="10"><div class="state-box"><div class="spin"></div>加载财务数据中…</div></td></tr>`;
     try {
-      const { total, rows } = await EM.getFinanceList({
-        page: curPage,
-        pageSize: PAGE_SIZE,
-        sortColumn: curSort,
+      allStocks = await EM.getAllForecast();
+      if (!allStocks.length) throw new Error("无数据");
+      // 聚合行业
+      const indCount = {};
+      allStocks.forEach((s) => {
+        const ind = s.industry || "未分类";
+        indCount[ind] = (indCount[ind] || 0) + 1;
       });
-      if (!rows.length) {
-        tbody.innerHTML = `<tr><td colspan="10"><div class="state-box">暂无数据</div></td></tr>`;
-        return;
-      }
-      const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-      document.getElementById("page-info").textContent = `第 ${curPage} / ${totalPages} 页 · 共 ${total} 家`;
-      document.getElementById("prev-btn").disabled = curPage <= 1;
-      document.getElementById("next-btn").disabled = curPage >= totalPages;
-
-      tbody.innerHTML = rows
-        .map((d) => {
-          const market = d.code.startsWith("6") ? 1 : 0;
-          return `<tr onclick="location.href='stock.html?code=${d.code}&name=${encodeURIComponent(d.name)}'">
-            <td><div class="name-cell">${d.name}</div><div class="code-cell">${d.code}</div></td>
-            <td>${d.reportDate}</td>
-            <td>${EM.fmtBig(d.income)}</td>
-            <td class="${EM.clsOf(d.incomeYoy)}">${EM.fmtPct(d.incomeYoy)}</td>
-            <td>${EM.fmtBig(d.netProfit)}</td>
-            <td class="${EM.clsOf(d.profitYoy)}">${EM.fmtPct(d.profitYoy)}</td>
-            <td>${EM.fmtNum(d.roe)}%</td>
-            <td>${EM.fmtNum(d.grossMargin)}%</td>
-            <td>${EM.fmtNum(d.eps)}</td>
-            <td>${d.industry || "--"}</td>
-          </tr>`;
-        })
-        .join("");
+      const industries = Object.keys(indCount).sort((a, b) => indCount[b] - indCount[a]);
+      nav.innerHTML =
+        `<button class="chip active" data-ind="全部">全部<span class="ind-count">${allStocks.length}</span></button>` +
+        industries
+          .map((i) => `<button class="chip" data-ind="${i}">${i}<span class="ind-count">${indCount[i]}</span></button>`)
+          .join("");
+      nav.querySelectorAll(".chip").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          nav.querySelectorAll(".chip").forEach((x) => x.classList.remove("active"));
+          btn.classList.add("active");
+          curIndustry = btn.dataset.ind;
+          applyFilter();
+        });
+      });
+      applyFilter();
     } catch (e) {
-      tbody.innerHTML = `<tr><td colspan="10"><div class="state-box">财务数据加载失败：${e.message}（请检查网络后重试）</div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7"><div class="state-box">数据加载失败：${e.message}</div></td></tr>`;
     }
   }
 
-  /* ============ 搜索建议 ============ */
-  function initSearch() {
+  function applyFilter() {
+    filtered = curIndustry === "全部"
+      ? allStocks.slice()
+      : allStocks.filter((s) => (s.industry || "未分类") === curIndustry);
+    sortRows();
+    renderRows();
+  }
+
+  function sortRows() {
+    const map = { orgNum: "orgNum", epsNext: "epsNext", growth: "growth" };
+    const key = map[sortKey] || "orgNum";
+    filtered.sort((a, b) => {
+      const va = a[key] === null || a[key] === undefined ? -Infinity : a[key];
+      const vb = b[key] === null || b[key] === undefined ? -Infinity : b[key];
+      return vb - va;
+    });
+  }
+
+  function renderRows() {
+    const tbody = document.getElementById("fin-tbody");
+    if (!filtered.length) {
+      tbody.innerHTML = `<tr><td colspan="7"><div class="state-box">该行业暂无机构预测覆盖的股票</div></td></tr>`;
+      return;
+    }
+    tbody.innerHTML = filtered
+      .map((d) => {
+        const growth = EM.forecastGrowth(d);
+        const aim = d.aimPriceMax ? `${EM.fmtNum(d.aimPriceMin)} ~ ${EM.fmtNum(d.aimPriceMax)}` : "--";
+        const rating = d.orgNum ? `买入${d.buyNum || 0} · 增持${d.addNum || 0} · ${d.orgNum}家` : "--";
+        return `<tr onclick="location.href='stock.html?code=${d.code}&name=${encodeURIComponent(d.name)}'">
+          <td><div class="name-cell">${d.name}</div><div class="code-cell">${d.code}</div></td>
+          <td>${d.industry || "--"}</td>
+          <td>${rating}</td>
+          <td>${EM.fmtNum(d.epsNext)}</td>
+          <td>${EM.fmtNum(d.epsNext2)}</td>
+          <td class="${EM.clsOf(growth)}">${growth !== null ? EM.fmtPct(growth) : "--"}</td>
+          <td>${aim}</td>
+        </tr>`;
+      })
+      .join("");
+  }
+
+  /* ============ 快速选股（本地过滤 + 键盘导航）============ */
+  function initQuickPick() {
     const input = document.getElementById("search-input");
     const box = document.getElementById("search-suggest");
     let timer = null;
+    let curIdx = -1;
+
+    function render(list, kw) {
+      if (!list.length) {
+        box.innerHTML = `<div class="suggest-item"><span class="s-name" style="color:var(--text-3)">无匹配结果</span></div>`;
+        curIdx = -1;
+        return;
+      }
+      box.innerHTML = list
+        .map(
+          (d, i) => `<div class="suggest-item ${i === curIdx ? "active" : ""}" data-code="${d.code}" data-name="${encodeURIComponent(d.name)}">
+            <span class="s-name">${d.name}</span><span class="s-code">${d.code}</span>
+            <span class="s-type">${d.industry || "股票"}</span>
+          </div>`
+        )
+        .join("");
+    }
+
+    function jump(el) {
+      if (el) location.href = `stock.html?code=${el.dataset.code}&name=${el.dataset.name}`;
+    }
 
     input.addEventListener("input", () => {
       clearTimeout(timer);
+      curIdx = -1;
       const kw = input.value.trim();
       if (!kw) { box.classList.remove("open"); return; }
-      timer = setTimeout(async () => {
-        try {
-          const list = await EM.searchStock(kw);
-          if (!list.length) {
-            box.innerHTML = `<div class="suggest-item"><span class="s-name" style="color:var(--text-3)">无匹配结果</span></div>`;
-            box.classList.add("open");
-            return;
-          }
-          box.innerHTML = list
-            .map((d) => `<div class="suggest-item" data-code="${d.code}" data-name="${encodeURIComponent(d.name)}">
-              <span class="s-name">${d.name}</span><span class="s-code">${d.code}</span><span class="s-type">${d.type}</span>
-            </div>`)
-            .join("");
+      timer = setTimeout(() => {
+        // 优先本地全量数据过滤（快）
+        let local = [];
+        if (allStocks.length) {
+          const k = kw.toLowerCase();
+          local = allStocks.filter((s) => s.code.includes(k) || s.name.toLowerCase().includes(k)).slice(0, 8);
+        }
+        if (local.length) {
+          render(local);
           box.classList.add("open");
-          box.querySelectorAll(".suggest-item").forEach((el) => {
-            el.addEventListener("click", () => {
-              location.href = `stock.html?code=${el.dataset.code}&name=${el.dataset.name}`;
-            });
-          });
-        } catch (e) { /* 静默 */ }
-      }, 300);
+        } else {
+          // 本地无结果 → 走搜索接口（支持拼音）
+          EM.searchStock(kw).then((list) => {
+            render(list, kw);
+            box.classList.add("open");
+          }).catch(() => {});
+        }
+      }, 200);
+    });
+
+    input.addEventListener("keydown", (e) => {
+      const items = box.querySelectorAll(".suggest-item");
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        curIdx = Math.min(curIdx + 1, items.length - 1);
+        render(items.length ? [...allStocks].slice(0, items.length) : [], "");
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        curIdx = Math.max(curIdx - 1, 0);
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        const active = box.querySelector(".suggest-item.active") || box.querySelector(".suggest-item");
+        jump(active);
+      }
+      if (curIdx >= 0 && items.length) {
+        items.forEach((el, i) => el.classList.toggle("active", i === curIdx));
+      }
     });
 
     document.addEventListener("click", (e) => {
       if (!box.contains(e.target) && e.target !== input) box.classList.remove("open");
     });
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        const first = box.querySelector(".suggest-item");
-        if (first) location.href = `stock.html?code=${first.dataset.code}&name=${first.dataset.name}`;
-      }
-    });
-  }
-
-  /* ============ 事件绑定 ============ */
-  function bindEvents() {
-    document.querySelectorAll(".tab-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        document.querySelectorAll(".tab-btn").forEach((x) => x.classList.remove("active"));
-        btn.classList.add("active");
-        curSort = btn.dataset.sort;
-        curPage = 1;
-        loadList();
-      });
-    });
-    document.getElementById("prev-btn").addEventListener("click", () => {
-      if (curPage > 1) { curPage--; loadList(); }
-    });
-    document.getElementById("next-btn").addEventListener("click", () => {
-      curPage++;
-      loadList();
+    box.addEventListener("click", (e) => {
+      const item = e.target.closest(".suggest-item");
+      if (item) jump(item);
     });
   }
 
   /* ============ 初始化 ============ */
   loadWatchlist();
-  loadList();
-  initSearch();
-  bindEvents();
+  loadIndustries();
+  initQuickPick();
   initHints();
   const now = new Date();
   document.getElementById("update-time").textContent = "数据更新时间：" + now.toLocaleString("zh-CN", { hour12: false });
