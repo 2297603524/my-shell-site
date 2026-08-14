@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="全网股票基本面分析 - A股公司财务业绩排行、核心财务指标">
+  <meta name="description" content="全网股票基本面分析 - 按行业分类浏览、盈利预测、机构评级">
   <title>股析 · 股票基本面分析</title>
   <link rel="stylesheet" href="css/styles.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
@@ -13,7 +13,7 @@
     <nav class="navbar">
       <a class="brand" href="index.html"><span class="logo">析</span>股析</a>
       <div class="search-box">
-        <input type="text" id="search-input" placeholder="搜索代码 / 名称 / 拼音，如 600519、茅台、GZMT" autocomplete="off">
+        <input type="text" id="search-input" placeholder="输入代码 / 名称 快速选股，如 600519、茅台" autocomplete="off">
         <div class="search-suggest" id="search-suggest"></div>
       </div>
     </nav>
@@ -26,17 +26,11 @@
       <div id="watch-list"><div class="state-box"><div class="spin"></div>加载自选中…</div></div>
     </div>
 
-    <!-- 排行说明 -->
+    <!-- 行业分类 -->
     <div class="card">
-      <div class="card-title">A股公司财务排行（基本面 · 最新报告期）</div>
-      <div class="tab-bar">
-        <button class="tab-btn active" data-sort="PARENT_NETPROFIT">归母净利润</button>
-        <button class="tab-btn" data-sort="TOTAL_OPERATE_INCOME">营业收入</button>
-        <button class="tab-btn" data-sort="WEIGHTAVG_ROE">ROE</button>
-        <button class="tab-btn" data-sort="XSMLL">毛利率</button>
-        <button class="tab-btn" data-sort="SJLTZ">净利增速</button>
-        <button class="tab-btn" data-sort="YSTZ">营收增速</button>
-        <button class="tab-btn" data-sort="BASIC_EPS">每股收益</button>
+      <div class="card-title">行业分类<span style="font-size:12px;color:var(--text-3);font-weight:400;">（点击行业筛选 · 数据为机构盈利预测覆盖的股票）</span></div>
+      <div class="industry-nav" id="industry-nav">
+        <button class="chip active" data-ind="全部">全部</button>
       </div>
       <div class="update-time" id="update-time"></div>
       <div class="table-wrap">
@@ -44,32 +38,24 @@
           <thead>
             <tr>
               <th>名称 / 代码</th>
-              <th>报告期<i class="hint" data-key="reportDate">?</i></th>
-              <th>营业总收入<i class="hint" data-key="income">?</i></th>
-              <th>营收同比<i class="hint" data-key="incomeYoy">?</i></th>
-              <th>归母净利润<i class="hint" data-key="netProfit">?</i></th>
-              <th>净利同比<i class="hint" data-key="profitYoy">?</i></th>
-              <th>ROE<i class="hint" data-key="roe">?</i></th>
-              <th>毛利率<i class="hint" data-key="grossMargin">?</i></th>
-              <th>EPS<i class="hint" data-key="eps">?</i></th>
               <th>行业<i class="hint" data-key="industry">?</i></th>
+              <th>机构评级<i class="hint" data-key="rating">?</i></th>
+              <th>预测EPS(下年)<i class="hint" data-key="epsNext">?</i></th>
+              <th>预测EPS(后年)<i class="hint" data-key="epsNext2">?</i></th>
+              <th>预测增速<i class="hint" data-key="forecastGrowth">?</i></th>
+              <th>目标价区间<i class="hint" data-key="aimPrice">?</i></th>
             </tr>
           </thead>
           <tbody id="fin-tbody">
-            <tr><td colspan="10"><div class="state-box"><div class="spin"></div>加载财务数据中…</div></td></tr>
+            <tr><td colspan="7"><div class="state-box"><div class="spin"></div>加载数据中…</div></td></tr>
           </tbody>
         </table>
-      </div>
-      <div class="pager">
-        <button id="prev-btn" class="chip">上一页</button>
-        <span id="page-info" class="page-info">第 1 页</span>
-        <button id="next-btn" class="chip">下一页</button>
       </div>
     </div>
   </main>
 
   <footer class="site-footer">
-    <p>股析 · 基本面数据来源：东方财富 F10 公开数据（公司财务报告）· 数据仅供参考，不构成投资建议</p>
+    <p>股析 · 数据来源：东方财富 F10 / 数据中心（盈利预测为券商一致预期，仅供参考）</p>
     <p style="margin-top:4px;">市场有风险，投资需谨慎</p>
   </footer>
 
