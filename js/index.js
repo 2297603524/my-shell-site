@@ -1,10 +1,90 @@
-/* ===== 首页逻辑：A股财务排行 + 搜索 ===== */
+/* ===== 首页逻辑：自选股 + A股财务排行 + 搜索 + 指标释义 ===== */
 (function () {
   "use strict";
 
   let curSort = "PARENT_NETPROFIT";
   let curPage = 1;
   const PAGE_SIZE = 50;
+
+  /* ============ 指标释义问号 ============ */
+  function initHints() {
+    const tip = document.createElement("div");
+    tip.className = "tip-float";
+    document.body.appendChild(tip);
+    let hideTimer = null;
+
+    document.addEventListener("mouseover", (e) => {
+      const h = e.target.closest(".hint");
+      if (!h) return;
+      const key = h.dataset.key;
+      const text = EM.METRIC_TIPS[key];
+      if (!text) return;
+      tip.textContent = text;
+      tip.classList.add("show");
+      const rect = h.getBoundingClientRect();
+      let left = rect.left + rect.width / 2;
+      let top = rect.top - 10;
+      const tw = tip.offsetWidth;
+      const th = tip.offsetHeight;
+      left = Math.min(Math.max(8, left - tw / 2), window.innerWidth - tw - 8);
+      if (top - th < 0) top = rect.bottom + 10;
+      else top = top - th;
+      tip.style.left = left + "px";
+      tip.style.top = top + "px";
+      clearTimeout(hideTimer);
+    });
+    document.addEventListener("mouseout", (e) => {
+      if (e.target.closest(".hint")) {
+        hideTimer = setTimeout(() => tip.classList.remove("show"), 80);
+      }
+    });
+  }
+
+  /* ============ 自选股 ============ */
+  async function loadWatchlist() {
+    const box = document.getElementById("watch-list");
+    const list = EM.getWatchlist();
+    if (!list.length) {
+      box.innerHTML = `<div class="watch-empty">暂无自选股票 — 在个股详情页点击 ☆ 按钮即可加入自选</div>`;
+      return;
+    }
+    box.innerHTML = `<div class="state-box"><div class="spin"></div>加载自选数据中…</div>`;
+    try {
+      const items = await Promise.all(
+        list.map(async (s) => {
+          try {
+            const rows = await EM.getMainIndicators(s.code, s.market || "SH", 1);
+            const r = rows[0] || {};
+            return { ...s, reportDate: r.reportDate, income: r.income, netProfit: r.netProfit, roe: r.roe };
+          } catch (e) {
+            return { ...s, error: true };
+          }
+        })
+      );
+      box.innerHTML = items
+        .map(
+          (s) => `<div class="watch-item" onclick="location.href='stock.html?code=${s.code}&name=${encodeURIComponent(s.name)}'">
+            <span class="w-name">${s.name}</span>
+            <span class="w-code">${s.code}</span>
+            <span class="w-nums">
+              <span>${s.error ? "数据加载失败" : EM.fmtBig(s.netProfit)}</span>
+              <span>${s.error ? "" : EM.fmtNum(s.roe) + "%"}</span>
+            </span>
+            <span class="w-del" data-code="${s.code}" title="移除自选">×</span>
+          </div>`
+        )
+        .join("");
+      box.querySelectorAll(".w-del").forEach((el) => {
+        el.addEventListener("click", (e) => {
+          e.stopPropagation();
+          EM.removeWatch(el.dataset.code);
+          loadWatchlist();
+        });
+      });
+    } catch (e) {
+      box.innerHTML = `<div class="state-box">自选数据加载失败：${e.message}</div>`;
+    }
+  }
 
   /* ============ 财务排行列表 ============ */
   async function loadList() {
@@ -28,7 +108,6 @@
       tbody.innerHTML = rows
         .map((d) => {
           const market = d.code.startsWith("6") ? 1 : 0;
-          const secid = EM.buildSecid(market, d.code);
           return `<tr onclick="location.href='stock.html?code=${d.code}&name=${encodeURIComponent(d.name)}'">
             <td><div class="name-cell">${d.name}</div><div class="code-cell">${d.code}</div></td>
             <td>${d.reportDate}</td>
@@ -113,9 +192,11 @@
   }
 
   /* ============ 初始化 ============ */
+  loadWatchlist();
   loadList();
   initSearch();
   bindEvents();
+  initHints();
   const now = new Date();
   document.getElementById("update-time").textContent = "数据更新时间：" + now.toLocaleString("zh-CN", { hour12: false });
 })();
