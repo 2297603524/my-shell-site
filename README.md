@@ -4,6 +4,10 @@
 
 ## 在线访问
 
+主站（CloudStudio 永久链接）：
+https://09d59cb578634ecebb933d0b98f36a3b.app.workbuddy.link
+
+备用（GitHub Pages）：
 https://2297603524.github.io/my-shell-site/
 
 ## 功能
@@ -42,6 +46,18 @@ my-shell-site/
 | 股票搜索 | `searchapi.eastmoney.com/api/suggest` |
 
 所有接口均支持 CORS，纯前端直连，无需后端服务器。数据实时性取决于接口刷新频率（交易时段内基本实时）。
+
+## 数据源双保险
+
+| 数据 | 主源（东财） | 备源（腾讯） |
+|------|------|------|
+| 指数行情 | `push2/ulist.np` | `qt.gtimg.cn/q=` 批量快照 |
+| 个股快照 | `push2/stock/get` | `qt.gtimg.cn/q=` |
+| 分时数据 | `push2/trends2` | `web.ifzq.gtimg.cn/minute` |
+| K线（日/周/月） | `push2his/kline` | `web.ifzq.gtimg.cn/fqkline` |
+| 行情列表/板块/资金流/财务 | `push2/clist`、`fflow`、`datacenter` | — |
+
+主源失败自动切换备源（腾讯接口 CORS `*`，兼容性好）；东财接口另有 JSONP 兜底，双重保障跨域取数。
 
 ## 本地预览
 
