@@ -313,6 +313,74 @@ const EM = (() => {
     return market + "." + code;
   }
 
+  /* ============ 自选股（localStorage）============ */
+  const WL_KEY = "em_watchlist_v1";
+
+  function getWatchlist() {
+    try {
+      return JSON.parse(localStorage.getItem(WL_KEY)) || [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function isWatched(code) {
+    return getWatchlist().some((s) => s.code === code);
+  }
+
+  function addWatch(code, name, market) {
+    const list = getWatchlist();
+    if (!list.some((s) => s.code === code)) {
+      list.push({ code, name, market: market || (code.startsWith("6") || code.startsWith("9") ? "SH" : "SZ"), time: Date.now() });
+      localStorage.setItem(WL_KEY, JSON.stringify(list));
+    }
+    return list;
+  }
+
+  function removeWatch(code) {
+    const list = getWatchlist().filter((s) => s.code !== code);
+    localStorage.setItem(WL_KEY, JSON.stringify(list));
+    return list;
+  }
+
+  /* 指标释义字典：悬停问号显示 */
+  const METRIC_TIPS = {
+    income: "报告期内公司销售商品、提供劳务等主营业务活动产生的收入合计（营业总收入）",
+    incomeYoy: "本报告期营业总收入与上年同期相比的增长百分比",
+    netProfit: "归属于母公司股东的净利润，即扣除少数股东损益后、归上市公司股东享有的利润",
+    profitYoy: "本报告期归母净利润与上年同期相比的增长百分比",
+    roe: "净资产收益率 = 净利润 ÷ 净资产，衡量股东投入资金的盈利能力，越高越好",
+    grossMargin: "毛利率 = (营业收入 - 营业成本) ÷ 营业收入，反映产品或服务的盈利空间",
+    netMargin: "净利率 = 净利润 ÷ 营业收入，反映公司整体盈利水平",
+    debtRatio: "资产负债率 = 总负债 ÷ 总资产，衡量财务杠杆与偿债压力，过高有风险",
+    eps: "每股收益 = 归母净利润 ÷ 总股本，衡量每股股票创造的净利润",
+    bps: "每股净资产 = 股东权益 ÷ 总股本，反映每股股票对应的账面价值",
+    ocfPerShare: "每股经营现金流 = 经营活动现金流量净额 ÷ 总股本，反映公司现金造血能力",
+    reportDate: "财务数据对应的报告期（季度/年度财报截止日）",
+    industry: "公司所属的申万行业分类",
+    totalAssets: "公司拥有的全部资产总额（资产负债表左半边合计）",
+    monetaryFunds: "货币资金：公司持有的现金及银行存款，流动性最强的资产",
+    accountsReceivable: "应收账款：已销售商品但尚未收回的款项，过高说明回款能力弱",
+    inventory: "存货：尚未销售的产品、半成品与原材料，过高可能滞销",
+    fixedAssets: "固定资产：厂房、设备等长期资产净值",
+    totalLiabilities: "总负债：公司全部债务总额（资产负债表右半边合计）",
+    accountsPayable: "应付账款：采购后尚未支付的款项，属于对供应商的占款",
+    shortLoan: "短期借款：一年内到期的银行借款等有息负债",
+    totalEquity: "股东权益：净资产 = 总资产 - 总负债，归股东所有的部分",
+    operateCost: "营业总成本：与营业收入匹配的全部成本费用",
+    operateProfit: "营业利润 = 营业收入 - 营业成本 - 期间费用等，反映主营经营成果",
+    totalProfit: "利润总额 = 营业利润 + 营业外收支，缴纳所得税前的利润",
+    deductNetProfit: "扣非净利润：剔除政府补助、资产处置等非经常性损益后的净利润，更能反映主业质量",
+    cashOperate: "经营活动现金流：主营经营产生的现金净流入，持续为正说明造血能力强",
+    cashInvest: "投资活动现金流：购建资产、投资等活动的现金净额，通常为负表示扩张投入",
+    cashFinance: "筹资活动现金流：借款、发股、分红等融资活动的现金净额",
+    payStaff: "支付给职工以及为职工支付的现金",
+    mainopIncome: "主营构成中该项目的营业收入",
+    mainopRatio: "该项目收入占公司营业总收入的比例",
+    mainopCost: "该项目对应的营业成本",
+    mainopMargin: "该项目毛利率 = (收入 - 成本) ÷ 收入，反映单一业务的盈利空间",
+  };
+
   return {
     getCompanyProfile,
     getMainIndicators,
@@ -328,5 +396,10 @@ const EM = (() => {
     clsOf,
     buildSecid,
     secucode,
+    getWatchlist,
+    isWatched,
+    addWatch,
+    removeWatch,
+    METRIC_TIPS,
   };
 })();
