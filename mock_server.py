@@ -182,6 +182,9 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             return
         data = json.dumps(body, ensure_ascii=False).encode("utf-8")
+        cb = qs.get("cb", [None])[0]
+        if cb:
+            data = (cb + "(" + data.decode("utf-8") + ")").encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Access-Control-Allow-Origin", "*")

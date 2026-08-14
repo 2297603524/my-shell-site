@@ -14,18 +14,51 @@ const EM = (() => {
   const SEARCH_TOKEN = "D43BF722C8E33BDC906FB84D85E326E8";
 
   /* 通用 fetch：超时 + JSON 解析，支持多域名轮换（防限流/单点故障） */
-  async function getJson(url, timeout = 12000, hosts = null) {
-    if (!hosts) return fetchOnce(url, timeout);
+  async function getJson(url, timeout = 12000, hosts = null, useJsonp = true) {
+    const tryList = hosts ? hosts.map((h) => url.replace(/^https:\/\/[^/]+/, "https://" + h)) : [url];
     let lastErr = null;
-    for (const h of hosts) {
-      const alt = url.replace(/^https:\/\/[^/]+/, "https://" + h);
+    for (const u of tryList) {
       try {
-        return await fetchOnce(alt, timeout);
+        return await fetchOnce(u, timeout);
       } catch (e) {
         lastErr = e;
       }
     }
+    if (useJsonp) {
+      try {
+        return await jsonpOnce(url, timeout);
+      } catch (e2) {
+        throw lastErr || e2;
+      }
+    }
     throw lastErr;
+  }
+
+  /* JSONP 兜底：东财接口支持 cb= 回调，不受 CORS 限制 */
+  function jsonpOnce(url, timeout) {
+    return new Promise((resolve, reject) => {
+      const cb = "emcb_" + Date.now() + "_" + Math.floor(Math.random() * 1e6);
+      const script = document.createElement("script");
+      const timer = setTimeout(() => {
+        cleanup();
+        reject(new Error("JSONP timeout"));
+      }, timeout);
+      function cleanup() {
+        clearTimeout(timer);
+        delete window[cb];
+        if (script.parentNode) script.parentNode.removeChild(script);
+      }
+      window[cb] = (data) => {
+        cleanup();
+        resolve(data);
+      };
+      script.onerror = () => {
+        cleanup();
+        reject(new Error("JSONP error"));
+      };
+      script.src = url + (url.includes("?") ? "&" : "?") + "cb=" + cb;
+      document.head.appendChild(script);
+    });
   }
 
   async function fetchOnce(url, timeout) {
@@ -259,7 +292,7 @@ const EM = (() => {
       DC +
       `?reportName=RPT_LICO_FN_CPD&columns=ALL&filter=${filter}` +
       "&pageNumber=1&pageSize=8&sortTypes=-1&sortColumns=REPORTDATE&source=HSF10&client=PC";
-    const j = await getJson(url);
+    const j = await getJson(url, 12000, null, false);
     const rows = (j.result && j.result.data) || [];
     return rows.map((d) => ({
       reportDate: str(d.REPORTDATE).slice(0, 10),
